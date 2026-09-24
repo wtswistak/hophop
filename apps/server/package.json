@@ -1,0 +1,17 @@
+{
+  "name": "@game/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.18.16",
+    "@colyseus/ws-transport": "0.18.3",
+    "express": "5.2.1"
+  }
+}
