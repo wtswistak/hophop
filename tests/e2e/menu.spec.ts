@@ -9,7 +9,7 @@ test('opening and closing the scene does not leave extra canvases', async ({
     page.getByRole('heading', { name: 'Gra platformowa' }),
   ).toBeVisible();
   for (let i = 0; i < 3; i++) {
-    await page.getByRole('button', { name: 'Otwórz scenę' }).click();
+    await page.getByRole('button', { name: 'Zagraj lokalnie' }).click();
     await expect(page.locator('canvas')).toHaveCount(1);
     await expect(page.locator('canvas')).toBeVisible();
     await page.getByRole('button', { name: 'Wróć do menu' }).click();

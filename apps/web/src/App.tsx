@@ -9,11 +9,14 @@ const GameCanvas = lazy(() =>
 export function App() {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <main>
-      <h1>Gra platformowa</h1>
+    <main className={isOpen ? 'playing' : undefined}>
+      {!isOpen && <h1>Gra platformowa</h1>}
       {isOpen ? (
         <>
-          <button onClick={() => setIsOpen(false)}>Wróć do menu</button>
+          <header className="game-header">
+            <button onClick={() => setIsOpen(false)}>Wróć do menu</button>
+            <p>Ruch: ← → / A D · Skok: spacja / ↑ / W</p>
+          </header>
           <Suspense fallback={<p role="status">Wczytywanie sceny…</p>}>
             <GameCanvas />
           </Suspense>
@@ -21,7 +24,7 @@ export function App() {
       ) : (
         <>
           <p>Skacz, odkrywaj i dotrzyj do mety.</p>
-          <button onClick={() => setIsOpen(true)}>Otwórz scenę</button>
+          <button onClick={() => setIsOpen(true)}>Zagraj lokalnie</button>
         </>
       )}
     </main>
