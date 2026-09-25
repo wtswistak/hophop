@@ -1,2 +1,13 @@
-// Wspólna symulacja pojawi się w etapie 2. Moduł nie zależy od frameworków.
-export {};
+export {
+  createPlayer,
+  stepPlayer,
+  FIXED_STEP_MS,
+  PLAYER_WIDTH,
+  PLAYER_HEIGHT,
+} from './player.js';
+export type {
+  LevelGeometry,
+  PlayerInput,
+  PlayerState,
+  Rectangle,
+} from './types.js';
