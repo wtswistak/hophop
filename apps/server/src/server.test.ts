@@ -1,6 +1,8 @@
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test, vi } from 'vitest';
+import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createGameServer } from './server.js';
+vi.stubEnv('ALLOWED_ORIGINS', 'https://game.test');
 const server = createGameServer();
 let url: string;
 beforeAll(async () => {
@@ -10,6 +12,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);
+  vi.unstubAllEnvs();
 });
 test('health endpoint reports a running server', async () => {
   const response = await fetch(`${url}/health`);
@@ -67,4 +70,61 @@ test('a real room accepts two clients, rejects the third and publishes server mo
   } finally {
     await Promise.all([first.leave(), second?.leave()]);
   }
+});
+
+test('HTTP and preflight only allow the configured browser origin', async () => {
+  const allowed = await fetch(`${url}/health`, {
+    headers: { Origin: 'https://game.test' },
+  });
+  expect(allowed.status).toBe(200);
+  expect(allowed.headers.get('access-control-allow-origin')).toBe(
+    'https://game.test',
+  );
+  const denied = await fetch(`${url}/matchmake/create/practice`, {
+    method: 'POST',
+    headers: {
+      Origin: 'https://evil.test',
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+  expect(denied.status).toBe(403);
+  expect(denied.headers.get('access-control-allow-origin')).not.toBe(
+    'https://evil.test',
+  );
+  for (const origin of ['https://game.test', 'https://evil.test']) {
+    const response = await fetch(`${url}/matchmake/create/practice`, {
+      method: 'OPTIONS',
+      headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' },
+    });
+    expect(response.headers.get('access-control-allow-origin')).toBe(
+      origin === 'https://game.test' ? origin : '',
+    );
+  }
+});
+
+test('WebSocket upgrade rejects a disallowed browser origin', async () => {
+  const status = await new Promise<number | undefined>((resolve, reject) => {
+    const req = request(url, {
+      headers: {
+        Origin: 'https://evil.test',
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Version': '13',
+        'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+      },
+    });
+    req.on('response', (response) => {
+      response.resume();
+      resolve(response.statusCode);
+    });
+    req.on('upgrade', (_response, socket) => {
+      socket.destroy();
+      reject(new Error('Unexpected upgrade'));
+    });
+    req.on('error', reject);
+    req.setTimeout(2000, () => req.destroy(new Error('Upgrade timeout')));
+    req.end();
+  });
+  expect(status).toBe(403);
 });
