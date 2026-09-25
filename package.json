@@ -11,8 +11,8 @@
   },
   "scripts": {
     "dev": "concurrently --kill-others --names web,server \"npm run dev -w @game/web\" \"npm run dev -w @game/server\"",
-    "build": "npm run build -w @game/shared && npm run build -w @game/core && npm run build -w @game/server && npm run build -w @game/web",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build -w @game/core && npm run build -w @game/shared && npm run build -w @game/server && npm run build -w @game/web",
+    "typecheck": "npm run build -w @game/core && npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -11,3 +11,4 @@ export type {
   PlayerState,
   Rectangle,
 } from './types.js';
+export { practiceLevel } from './practiceLevel.js';
