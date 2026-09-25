@@ -111,3 +111,47 @@ main.playing {
     gap: 6px;
   }
 }
+
+.menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.join-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+input {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 10px;
+  min-height: 44px;
+  border: 1px solid #80b88c;
+  border-radius: 6px;
+  background: #162c3b;
+  color: inherit;
+  font: inherit;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.session-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.85rem;
+}
+.session-status p {
+  margin: 0;
+}
+.session-status input {
+  width: 140px;
+  min-height: 32px;
+  padding: 4px 8px;
+  margin-left: 8px;
+}

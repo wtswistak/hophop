@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createGame } from './createGame';
 import { bindKeyboard, PlayerControls } from './PlayerControls';
 import type { ControlAction } from './PlayerControls';
+import type { MultiplayerSession } from '../network/MultiplayerSession';
 
 const buttons: { action: ControlAction; label: string; text: string }[] = [
   { action: 'left', label: 'Idź w lewo', text: '←' },
@@ -9,7 +10,7 @@ const buttons: { action: ControlAction; label: string; text: string }[] = [
   { action: 'jump', label: 'Skocz', text: 'Skok' },
 ];
 
-export function GameCanvas() {
+export function GameCanvas({ session }: { session?: MultiplayerSession }) {
   const container = useRef<HTMLDivElement>(null);
   const [controls] = useState(() => new PlayerControls());
   useEffect(() => {
@@ -20,16 +21,19 @@ export function GameCanvas() {
     // Defer boot so React StrictMode can cancel its trial effect before allocating WebGL.
     let game: ReturnType<typeof createGame> | undefined;
     const boot = requestAnimationFrame(() => {
-      game = createGame(parent, controls);
+      game = createGame(parent, controls, session);
     });
     return () => {
       unbind();
       cancelAnimationFrame(boot);
       game?.destroy(true);
     };
-  }, [controls]);
+  }, [controls, session]);
   return (
-    <section className="game-shell" aria-label="Gra lokalna">
+    <section
+      className="game-shell"
+      aria-label={session ? 'Gra multiplayer' : 'Gra lokalna'}
+    >
       <div
         className="game-container"
         ref={container}
