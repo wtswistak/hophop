@@ -1,14 +1,12 @@
 import { ColyseusSDK } from '@colyseus/sdk';
 import { ROOM_TYPE } from '@game/shared';
+import { getServerEndpoint } from './serverAvailability';
 import { MultiplayerSession } from './MultiplayerSession';
 
 export async function connectMultiplayer(
   roomId?: string,
 ): Promise<MultiplayerSession> {
-  // The hostname default also works for a phone opening the dev server over LAN.
-  const endpoint =
-    import.meta.env.VITE_SERVER_URL ||
-    `http://${window.location.hostname}:2567`;
+  const endpoint = getServerEndpoint();
   const client = new ColyseusSDK(endpoint, {
     fetchFn: (url, init) =>
       fetch(url, {

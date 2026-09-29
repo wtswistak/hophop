@@ -40,3 +40,41 @@ test('two browsers join the same session and a third player cannot enter', async
     await Promise.all(contexts.map((context) => context.close()));
   }
 });
+
+test('waiting for a sleeping server can be cancelled to play locally', async ({
+  page,
+}) => {
+  await page.route('**/health', (route) =>
+    route.fulfill({ status: 503, body: 'Starting' }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Utwórz sesję multiplayer' }).click();
+  await expect(page.getByRole('status')).toContainText('Uruchamianie serwera');
+  await page.getByRole('button', { name: 'Anuluj' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Zagraj lokalnie' }),
+  ).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Zagraj lokalnie' }).click();
+  await expect(page.locator('canvas')).toBeVisible();
+});
+
+test('a failed room creation is only retried when requested by the player', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route('**/matchmake/create/**', (route) => {
+    attempts++;
+    return attempts === 1 ? route.abort() : route.continue();
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Utwórz sesję multiplayer' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(attempts).toBe(1);
+  await page.getByRole('button', { name: 'Spróbuj ponownie' }).click();
+  await expect(
+    page.getByRole('textbox', { name: 'Kod bieżącej sesji' }),
+  ).toBeVisible();
+  expect(attempts).toBe(2);
+  await page.getByRole('button', { name: 'Wróć do menu' }).click();
+});

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { MultiplayerStatus } from './network/MultiplayerStatus';
+import { getServerEndpoint, waitForServer } from './network/serverAvailability';
 import type { MultiplayerSession } from './network/MultiplayerSession';
 
 const GameCanvas = lazy(() =>
@@ -15,37 +16,56 @@ export function App() {
   const [roomId, setRoomId] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
+  const [waking, setWaking] = useState(false);
+  const pendingConnection = useRef<AbortController | null>(null);
+  const lastAttempt = useRef<string | undefined>(undefined);
   const activeSession = useRef<MultiplayerSession | null>(null);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      pendingConnection.current?.abort();
       activeSession.current?.close();
     };
   }, []);
 
   const connect = async (id?: string) => {
-    if (connecting) return;
+    if (pendingConnection.current) return;
+    const controller = new AbortController();
+    pendingConnection.current = controller;
+    lastAttempt.current = id;
     setConnecting(true);
     setError('');
+    setWaking(true);
+    let serverReady = false;
     try {
+      await waitForServer(getServerEndpoint(), controller.signal);
+      controller.signal.throwIfAborted();
+      setWaking(false);
+      serverReady = true;
       const { connectMultiplayer } =
         await import('./network/connectMultiplayer');
       const session = await connectMultiplayer(id);
-      if (!mounted.current) {
+      if (!mounted.current || controller.signal.aborted) {
         session.close();
         return;
       }
       activeSession.current = session;
       setMode({ kind: 'multiplayer', session });
     } catch {
-      if (mounted.current)
+      if (mounted.current && !controller.signal.aborted)
         setError(
-          'Nie udało się połączyć. Sprawdź kod sesji i połączenie. Pokój może być pełny lub niedostępny.',
+          serverReady
+            ? 'Nie udało się połączyć. Sprawdź kod sesji i połączenie. Pokój może być pełny lub niedostępny.'
+            : 'Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.',
         );
     } finally {
-      if (mounted.current) setConnecting(false);
+      pendingConnection.current = null;
+      if (mounted.current) {
+        setConnecting(false);
+        setWaking(false);
+      }
     }
   };
 
@@ -120,8 +140,30 @@ export function App() {
               Dołącz do sesji
             </button>
           </form>
-          {connecting && <p role="status">Łączenie z serwerem…</p>}
-          {error && <p role="alert">{error}</p>}
+          {connecting && (
+            <p role="status">
+              {waking
+                ? 'Uruchamianie serwera… Pierwsze połączenie może potrwać do 90 sekund.'
+                : 'Dołączanie do sesji…'}
+            </p>
+          )}
+          {waking && (
+            <button onClick={() => pendingConnection.current?.abort()}>
+              Anuluj
+            </button>
+          )}
+          {error && (
+            <>
+              <p role="alert">{error}</p>
+              <button
+                onClick={() => {
+                  void connect(lastAttempt.current);
+                }}
+              >
+                Spróbuj ponownie
+              </button>
+            </>
+          )}
         </>
       )}
     </main>
