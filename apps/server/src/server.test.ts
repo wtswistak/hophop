@@ -23,13 +23,54 @@ test('health endpoint reports a running server', async () => {
 test('a real room accepts two clients, rejects the third and publishes server movement', async () => {
   const { ColyseusSDK } = await import('@colyseus/sdk');
   const { LEVEL_ID, ROOM_TYPE } = await import('@game/shared');
-  const first = await new ColyseusSDK(url).create(ROOM_TYPE);
+  const first = await new ColyseusSDK(url).create(ROOM_TYPE, {
+    nickname: 'Alice',
+  });
   first.reconnection.enabled = false;
   let second: typeof first | undefined;
   try {
-    second = await new ColyseusSDK(url).joinById(first.roomId);
+    expect(await (await fetch(`${url}/lobbies`)).json()).toContainEqual({
+      roomId: first.roomId,
+      players: 1,
+    });
+    second = await new ColyseusSDK(url).joinById(first.roomId, {
+      nickname: 'Bob',
+    });
     second.reconnection.enabled = false;
-    await expect(new ColyseusSDK(url).joinById(first.roomId)).rejects.toThrow();
+    await expect(
+      new ColyseusSDK(url).joinById(first.roomId, { nickname: 'Cara' }),
+    ).rejects.toThrow();
+    const waitForPhase = (phase: string) =>
+      new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          unbind();
+          reject(new Error(`Missing ${phase} phase`));
+        }, 5000);
+        const unbind = first.onMessage(
+          'lobby',
+          (lobby: import('@game/shared').LobbySnapshot) => {
+            if (lobby.phase === phase) {
+              clearTimeout(timeout);
+              unbind();
+              resolve();
+            }
+          },
+        );
+      });
+    first.send('input', {
+      sequence: 1,
+      levelId: LEVEL_ID,
+      direction: 1,
+      jump: false,
+    });
+    const loading = waitForPhase('loading');
+    first.send('ready', { ready: true });
+    second.send('ready', { ready: true });
+    await loading;
+    const playing = waitForPhase('playing');
+    first.send('loaded', {});
+    second.send('loaded', {});
+    await playing;
     const nextState = new Promise<import('@game/shared').GameSnapshot>(
       (resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -42,7 +83,7 @@ test('a real room accepts two clients, rejects the third and publishes server mo
             const player = snapshot.players.find(
               (item) => item.sessionId === first.sessionId,
             );
-            if (player?.lastProcessedSequence === 1) {
+            if (player?.lastProcessedSequence === 2) {
               clearTimeout(timeout);
               unbind();
               resolve(snapshot);
@@ -52,7 +93,7 @@ test('a real room accepts two clients, rejects the third and publishes server mo
       },
     );
     first.send('input', {
-      sequence: 1,
+      sequence: 2,
       levelId: LEVEL_ID,
       direction: 1,
       jump: false,
@@ -70,7 +111,7 @@ test('a real room accepts two clients, rejects the third and publishes server mo
   } finally {
     await Promise.all([first.leave(), second?.leave()]);
   }
-});
+}, 10000);
 
 test('HTTP and preflight only allow the configured browser origin', async () => {
   const allowed = await fetch(`${url}/health`, {

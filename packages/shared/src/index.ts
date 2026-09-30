@@ -6,6 +6,96 @@ export const MAX_PLAYERS = 2;
 export const SNAPSHOT_EVERY_TICKS = 3;
 export const MAX_PENDING_INPUTS = 120;
 
+export type LobbyPhase = 'waiting' | 'loading' | 'countdown' | 'playing';
+export interface LobbyPlayer {
+  sessionId: string;
+  nickname: string;
+  slot: 1 | 2;
+  ready: boolean;
+  loaded: boolean;
+}
+export interface LobbySnapshot {
+  phase: LobbyPhase;
+  players: LobbyPlayer[];
+  countdownSeconds: number | null;
+}
+export interface PublicLobby {
+  roomId: string;
+  players: number;
+}
+
+export function parseNickname(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const nickname = value.trim();
+  return nickname.length >= 2 &&
+    nickname.length <= 20 &&
+    !/\p{Cc}/u.test(nickname)
+    ? nickname
+    : null;
+}
+
+export function isReadyMessage(value: unknown): value is { ready: boolean } {
+  return (
+    isRecord(value) &&
+    Object.keys(value).length === 1 &&
+    typeof value.ready === 'boolean'
+  );
+}
+
+export function isLobbySnapshot(value: unknown): value is LobbySnapshot {
+  if (
+    !isRecord(value) ||
+    !['waiting', 'loading', 'countdown', 'playing'].includes(
+      value.phase as string,
+    ) ||
+    !Array.isArray(value.players) ||
+    value.players.length > MAX_PLAYERS ||
+    (value.phase === 'countdown'
+      ? !Number.isInteger(value.countdownSeconds) ||
+        (value.countdownSeconds as number) < 1 ||
+        (value.countdownSeconds as number) > 3
+      : value.countdownSeconds !== null)
+  )
+    return false;
+  const ids = new Set<string>();
+  const slots = new Set<number>();
+  return value.players.every((player: unknown) => {
+    if (
+      !isRecord(player) ||
+      typeof player.sessionId !== 'string' ||
+      !player.sessionId ||
+      ids.has(player.sessionId) ||
+      parseNickname(player.nickname) !== player.nickname ||
+      (player.slot !== 1 && player.slot !== 2) ||
+      slots.has(player.slot) ||
+      typeof player.ready !== 'boolean' ||
+      typeof player.loaded !== 'boolean'
+    )
+      return false;
+    ids.add(player.sessionId);
+    slots.add(player.slot);
+    return true;
+  });
+}
+
+export function isPublicLobbyList(value: unknown): value is PublicLobby[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 100 &&
+    value.every(
+      (room: unknown) =>
+        isRecord(room) &&
+        Object.keys(room).length === 2 &&
+        typeof room.roomId === 'string' &&
+        room.roomId.length > 0 &&
+        room.roomId.length <= 64 &&
+        Number.isInteger(room.players) &&
+        (room.players as number) >= 0 &&
+        (room.players as number) < MAX_PLAYERS,
+    )
+  );
+}
+
 export interface InputCommand extends PlayerInput {
   sequence: number;
   levelId: typeof LEVEL_ID;

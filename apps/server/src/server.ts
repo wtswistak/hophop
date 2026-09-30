@@ -41,6 +41,13 @@ export function createGameServer() {
         health: createEndpoint('/health', { method: 'GET' }, async () => ({
           status: 'ok',
         })),
+        lobbies: createEndpoint('/lobbies', { method: 'GET' }, async () => {
+          const rooms = await matchMaker.query({ name: ROOM_TYPE });
+          return rooms
+            .filter((room) => !room.locked && room.clients < room.maxClients)
+            .slice(0, 100)
+            .map((room) => ({ roomId: room.roomId, players: room.clients }));
+        }),
       },
       { onRequest: checkOrigin },
     ),
