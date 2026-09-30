@@ -5,8 +5,13 @@ import {
   stepPlayer,
 } from '@game/core';
 import type { PlayerInput, PlayerState } from '@game/core';
-import { isGameSnapshot, LEVEL_ID, MAX_PENDING_INPUTS } from '@game/shared';
-import type { GameSnapshot, InputCommand } from '@game/shared';
+import {
+  isGameSnapshot,
+  isLobbySnapshot,
+  LEVEL_ID,
+  MAX_PENDING_INPUTS,
+} from '@game/shared';
+import type { GameSnapshot, InputCommand, LobbySnapshot } from '@game/shared';
 
 type SendCommand = (type: 'input' | 'stop', command: InputCommand) => void;
 interface ReceivedSnapshot {
@@ -16,6 +21,7 @@ interface ReceivedSnapshot {
 export interface SessionStatus {
   connected: boolean;
   playerCount: number;
+  lobby: LobbySnapshot;
 }
 
 export class MultiplayerSession {
@@ -24,7 +30,11 @@ export class MultiplayerSession {
   private sequence = 0;
   private lastTick = -1;
   private history: ReceivedSnapshot[] = [];
-  private status: SessionStatus = { connected: true, playerCount: 0 };
+  private status: SessionStatus = {
+    connected: true,
+    playerCount: 0,
+    lobby: { phase: 'waiting', players: [], countdownSeconds: null },
+  };
   private readonly listeners = new Set<() => void>();
   private closed = false;
 
@@ -33,6 +43,10 @@ export class MultiplayerSession {
     readonly sessionId: string,
     private readonly send: SendCommand,
     private readonly leave: () => void,
+    private readonly sendControl: (
+      type: 'ready' | 'loaded',
+      message: { ready: boolean } | Record<string, never>,
+    ) => void = () => {},
   ) {}
 
   readonly subscribe = (listener: () => void) => {
@@ -42,6 +56,29 @@ export class MultiplayerSession {
     };
   };
   readonly getStatus = () => this.status;
+
+  receiveLobby(message: unknown): boolean {
+    if (this.closed || !isLobbySnapshot(message)) return false;
+    if (JSON.stringify(this.status.lobby) === JSON.stringify(message))
+      return true;
+    this.status = {
+      ...this.status,
+      lobby: message,
+      playerCount: message.players.length,
+    };
+    this.listeners.forEach((listener) => listener());
+    return true;
+  }
+
+  setReady(ready: boolean) {
+    if (this.closed || this.status.lobby.phase !== 'waiting') return;
+    this.sendControl('ready', { ready });
+  }
+
+  loaded() {
+    if (this.closed || this.status.lobby.phase !== 'loading') return;
+    this.sendControl('loaded', {});
+  }
 
   receive(message: unknown, now: number): boolean {
     if (
@@ -74,6 +111,7 @@ export class MultiplayerSession {
     if (
       this.closed ||
       this.lastTick < 0 ||
+      this.status.lobby.phase !== 'playing' ||
       this.pending.length >= MAX_PENDING_INPUTS
     )
       return;

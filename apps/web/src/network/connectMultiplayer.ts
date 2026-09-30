@@ -1,11 +1,14 @@
 import { ColyseusSDK } from '@colyseus/sdk';
-import { ROOM_TYPE } from '@game/shared';
+import { parseNickname, ROOM_TYPE } from '@game/shared';
 import { getServerEndpoint } from './serverAvailability';
 import { MultiplayerSession } from './MultiplayerSession';
 
 export async function connectMultiplayer(
+  rawNickname: string,
   roomId?: string,
 ): Promise<MultiplayerSession> {
+  const nickname = parseNickname(rawNickname);
+  if (!nickname) throw new Error('Nieprawidłowy nick.');
   const endpoint = getServerEndpoint();
   const client = new ColyseusSDK(endpoint, {
     fetchFn: (url, init) =>
@@ -15,8 +18,8 @@ export async function connectMultiplayer(
       }),
   });
   const room = roomId
-    ? await client.joinById(roomId)
-    : await client.create(ROOM_TYPE);
+    ? await client.joinById(roomId, { nickname })
+    : await client.create(ROOM_TYPE, { nickname });
   room.reconnection.enabled = false; // Reconnection and seat reservations belong to stage 8.
   let disposed = false;
   const session = new MultiplayerSession(
@@ -27,6 +30,7 @@ export async function connectMultiplayer(
       if (disposed) return;
       disposed = true;
       unbindSnapshot();
+      unbindLobby();
       room.onLeave.remove(onLeave);
       room.onError.remove(onError);
       if (room.connection.isOpen) {
@@ -35,6 +39,7 @@ export async function connectMultiplayer(
         });
       }
     },
+    (type, message) => room.send(type, message),
   );
   let ready = false;
   let resolveReady: () => void;
@@ -56,6 +61,9 @@ export async function connectMultiplayer(
       ready = true;
       resolveReady();
     }
+  });
+  const unbindLobby = room.onMessage('lobby', (message: unknown) => {
+    session.receiveLobby(message);
   });
   const timeout = window.setTimeout(
     () => fail('Serwer nie przesłał stanu gry.'),

@@ -29,7 +29,7 @@ function signal() {
 }
 
 function createRoom() {
-  let receive: ((message: unknown) => void) | undefined;
+  const receivers = new Map<string, (message: unknown) => void>();
   const unbind = vi.fn();
   return {
     roomId: 'room',
@@ -41,11 +41,11 @@ function createRoom() {
     send: vi.fn(),
     leave: vi.fn(async () => 1000),
     onMessage: (_type: string, callback: (message: unknown) => void) => {
-      receive = callback;
+      receivers.set(_type, callback);
       return unbind;
     },
     deliver: () =>
-      receive?.({
+      receivers.get('snapshot')?.({
         tick: 1,
         levelId: LEVEL_ID,
         players: [
@@ -77,28 +77,28 @@ afterEach(() => {
 test('create waits for the first snapshot and closing releases the room once', async () => {
   const room = createRoom();
   sdk.create.mockResolvedValue(room);
-  const connecting = connectMultiplayer();
+  const connecting = connectMultiplayer('Alice');
   await Promise.resolve();
   room.deliver();
   const session = await connecting;
-  expect(sdk.create).toHaveBeenCalledWith(ROOM_TYPE);
+  expect(sdk.create).toHaveBeenCalledWith(ROOM_TYPE, { nickname: 'Alice' });
   expect(room.reconnection.enabled).toBe(false);
   expect(session.getStatus().playerCount).toBe(1);
   session.close();
   session.close();
   expect(room.leave).toHaveBeenCalledTimes(1);
-  expect(room.unbind).toHaveBeenCalledTimes(1);
+  expect(room.unbind).toHaveBeenCalledTimes(2);
   expect(vi.getTimerCount()).toBe(0);
 });
 
 test('joining uses the supplied ID and a transport error marks the session disconnected', async () => {
   const room = createRoom();
   sdk.joinById.mockResolvedValue(room);
-  const connecting = connectMultiplayer('room');
+  const connecting = connectMultiplayer('Alice', 'room');
   await Promise.resolve();
   room.deliver();
   const session = await connecting;
-  expect(sdk.joinById).toHaveBeenCalledWith('room');
+  expect(sdk.joinById).toHaveBeenCalledWith('room', { nickname: 'Alice' });
   room.onError.emit();
   expect(session.getStatus().connected).toBe(false);
   expect(room.leave).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ test('joining uses the supplied ID and a transport error marks the session disco
 test('a missing initial snapshot rejects and releases the seat', async () => {
   const room = createRoom();
   sdk.create.mockResolvedValue(room);
-  const connecting = connectMultiplayer();
+  const connecting = connectMultiplayer('Alice');
   const rejected = expect(connecting).rejects.toThrow(
     'Serwer nie przesłał stanu gry.',
   );
@@ -120,7 +120,7 @@ test('a missing initial snapshot rejects and releases the seat', async () => {
 test('leaving before the initial snapshot rejects immediately', async () => {
   const room = createRoom();
   sdk.create.mockResolvedValue(room);
-  const connecting = connectMultiplayer();
+  const connecting = connectMultiplayer('Alice');
   const rejected = expect(connecting).rejects.toThrow(
     'Połączenie z sesją zostało zakończone.',
   );

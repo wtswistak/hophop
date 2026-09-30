@@ -31,7 +31,7 @@ async function playerPosition(page: Page) {
 
 async function openGame(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Zagraj lokalnie' }).click();
+  await page.getByRole('button', { name: 'Zagraj samemu' }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect
     .poll(async () => (await playerPosition(page)).x)

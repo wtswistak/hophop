@@ -21,6 +21,14 @@ const snapshot = (tick = 1): GameSnapshot => ({
   ],
 });
 const right = { direction: 1, jump: false } as const;
+const playingLobby = {
+  phase: 'playing',
+  countdownSeconds: null,
+  players: [
+    { sessionId: 'a', nickname: 'Alice', slot: 1, ready: true, loaded: true },
+    { sessionId: 'b', nickname: 'Bob', slot: 2, ready: true, loaded: true },
+  ],
+} as const;
 
 test('predicts immediately, acknowledges processed input and replays remaining commands', () => {
   const sent: InputCommand[] = [];
@@ -31,6 +39,7 @@ test('predicts immediately, acknowledges processed input and replays remaining c
     () => {},
   );
   session.receive(snapshot(), 0);
+  session.receiveLobby(playingLobby);
   session.advance(right);
   session.advance(right);
   session.advance(right);
@@ -109,6 +118,7 @@ test('bounds unacknowledged prediction and stops publishing after disconnection'
     },
   );
   session.receive(snapshot(), 0);
+  session.receiveLobby(playingLobby);
   for (let i = 0; i < 200; i++) session.advance(right);
   expect(sent).toBe(120);
   session.stop();
@@ -118,4 +128,40 @@ test('bounds unacknowledged prediction and stops publishing after disconnection'
   expect(sent).toBe(121);
   expect(left).toBe(1);
   expect(session.getStatus().connected).toBe(false);
+});
+
+test('keeps movement blocked until the server announces play and sends readiness separately', () => {
+  const inputs: InputCommand[] = [];
+  const control: { type: string; message: unknown }[] = [];
+  const session = new MultiplayerSession(
+    'room',
+    'a',
+    (_type, input) => inputs.push(input),
+    () => {},
+    (type, message) => control.push({ type, message }),
+  );
+  session.receive(snapshot(), 0);
+  session.advance(right);
+  expect(inputs).toEqual([]);
+  expect(
+    session.receiveLobby({
+      phase: 'waiting',
+      countdownSeconds: null,
+      players: [playingLobby.players[0]],
+    }),
+  ).toBe(true);
+  session.setReady(true);
+  expect(control).toEqual([{ type: 'ready', message: { ready: true } }]);
+  session.receiveLobby({
+    phase: 'loading',
+    countdownSeconds: null,
+    players: playingLobby.players,
+  });
+  session.loaded();
+  expect(control[1]).toEqual({ type: 'loaded', message: {} });
+  session.advance(right);
+  expect(inputs).toEqual([]);
+  session.receiveLobby(playingLobby);
+  session.advance(right);
+  expect(inputs).toHaveLength(1);
 });
