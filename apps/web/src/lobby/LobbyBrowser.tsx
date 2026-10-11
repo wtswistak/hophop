@@ -117,12 +117,55 @@ export function LobbyBrowser({
   };
   const validNickname = Boolean(parseNickname(nickname));
   return (
-    <>
-      <div className="menu-actions">
-        <button disabled={connecting} onClick={onBack}>
+    <section
+      className="menu-panel lobby-browser"
+      aria-labelledby="lobbies-title"
+    >
+      <header className="lobby-heading">
+        <div>
+          <p className="menu-eyebrow">Multiplayer · 2 graczy</p>
+          <h1 id="lobbies-title">Wybierz lobby</h1>
+        </div>
+        <button
+          className="button-secondary"
+          disabled={connecting}
+          onClick={onBack}
+        >
           Wróć
         </button>
+      </header>
+      <p className="menu-intro">
+        Wybierz lobby lub utwórz nowe. Gra ruszy, gdy obie osoby będą gotowe.
+      </p>
+      <div className="lobby-setup">
+        <div className="nickname-field">
+          <label htmlFor="lobby-nickname">Twój nick</label>
+          <input
+            id="lobby-nickname"
+            value={nickname}
+            onChange={(event) => onNicknameChange(event.target.value)}
+            minLength={2}
+            maxLength={20}
+            autoComplete="nickname"
+            aria-describedby="nickname-hint"
+          />
+          <span className="field-hint" id="nickname-hint">
+            Od 2 do 20 znaków
+          </span>
+        </div>
         <button
+          disabled={connecting || !validNickname}
+          onClick={() => {
+            void connect();
+          }}
+        >
+          Utwórz lobby
+        </button>
+      </div>
+      <div className="lobby-list-heading">
+        <h2>Dostępne lobby</h2>
+        <button
+          className="button-secondary"
           disabled={connecting}
           onClick={() => {
             void browse();
@@ -131,36 +174,18 @@ export function LobbyBrowser({
           Odśwież listę
         </button>
       </div>
-      <label className="nickname-field">
-        Twój nick
-        <input
-          value={nickname}
-          onChange={(event) => onNicknameChange(event.target.value)}
-          minLength={2}
-          maxLength={20}
-          autoComplete="nickname"
-        />
-      </label>
-      <p>
-        Wybierz lobby lub utwórz nowe. Gra ruszy, gdy obie osoby będą gotowe.
-      </p>
-      <button
-        disabled={connecting || !validNickname}
-        onClick={() => {
-          void connect();
-        }}
-      >
-        Utwórz lobby
-      </button>
-      <h2>Dostępne lobby</h2>
-      {lobbies.length === 0 ? (
-        <p>Brak dostępnych lobby.</p>
-      ) : (
+      {lobbies.length === 0 && !connecting && !error && (
+        <p className="lobby-empty">
+          Brak dostępnych lobby. Utwórz pierwsze i poczekaj na drugiego gracza.
+        </p>
+      )}
+      {lobbies.length > 0 && (
         <ul className="lobby-list">
           {lobbies.map((lobby) => (
             <li key={lobby.roomId}>
-              <span>
-                Lobby {lobby.roomId.slice(0, 8)} · {lobby.players}/2 graczy
+              <span className="lobby-room">
+                <strong>Lobby {lobby.roomId.slice(0, 8)}</strong>
+                <span>{lobby.players}/2 graczy</span>
               </span>
               <button
                 disabled={connecting || !validNickname}
@@ -175,18 +200,25 @@ export function LobbyBrowser({
         </ul>
       )}
       {connecting && (
-        <p role="status">
+        <p className="lobby-feedback" role="status">
           {waking
             ? 'Uruchamianie serwera… Pierwsze połączenie może potrwać do 90 sekund.'
             : 'Łączenie z serwerem…'}
         </p>
       )}
       {waking && (
-        <button onClick={() => pending.current?.abort()}>Anuluj</button>
+        <button
+          className="button-secondary"
+          onClick={() => pending.current?.abort()}
+        >
+          Anuluj
+        </button>
       )}
       {error && (
         <>
-          <p role="alert">{error}</p>
+          <p className="lobby-feedback" role="alert">
+            {error}
+          </p>
           <button
             onClick={() => {
               if (lastAction.current.kind === 'browse') void browse();
@@ -197,6 +229,6 @@ export function LobbyBrowser({
           </button>
         </>
       )}
-    </>
+    </section>
   );
 }

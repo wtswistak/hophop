@@ -25,12 +25,11 @@ export function App() {
   return (
     <main
       className={
-        screen === 'local' || typeof screen === 'object' ? 'playing' : undefined
+        screen === 'local' || typeof screen === 'object'
+          ? 'playing'
+          : 'menu-screen'
       }
     >
-      {typeof screen === 'string' && screen !== 'local' && (
-        <h1>Gra platformowa</h1>
-      )}
       {screen === 'home' && (
         <HomeMenu
           onLocal={() => setScreen('local')}
