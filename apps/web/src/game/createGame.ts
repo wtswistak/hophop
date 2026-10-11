@@ -1,23 +1,20 @@
 import Phaser from 'phaser';
-import {
-  createPlayer,
-  FIXED_STEP_MS,
-  PLAYER_HEIGHT,
-  PLAYER_WIDTH,
-  stepPlayer,
-} from '@game/core';
+import { createPlayer, FIXED_STEP_MS, stepPlayer } from '@game/core';
 import type { PlayerState } from '@game/core';
 import { practiceLevel } from './level';
 import type { PlayerControls } from './PlayerControls';
 import type { MultiplayerSession } from '../network/MultiplayerSession';
+import {
+  createCanyonWorld,
+  createExplorer,
+  preloadCanyonArt,
+  updateExplorer,
+} from './CanyonArt';
 
 class PracticeScene extends Phaser.Scene {
   private player: PlayerState = createPlayer(practiceLevel);
-  private sprite?: Phaser.GameObjects.Rectangle;
-  private readonly remoteSprites = new Map<
-    string,
-    Phaser.GameObjects.Rectangle
-  >();
+  private sprite?: Phaser.GameObjects.Image;
+  private readonly remoteSprites = new Map<string, Phaser.GameObjects.Image>();
   private accumulator = 0;
   private paused = false;
 
@@ -28,44 +25,15 @@ class PracticeScene extends Phaser.Scene {
     super('practice');
   }
 
+  preload() {
+    preloadCanyonArt(this);
+  }
+
   create() {
     this.player = this.session?.player ?? createPlayer(practiceLevel);
-    for (let x = 100; x < practiceLevel.width; x += 260) {
-      this.add.rectangle(x, 170, 100, 26, 0x26495b);
-    }
-    for (const platform of practiceLevel.platforms) {
-      this.add
-        .rectangle(
-          platform.x,
-          platform.y,
-          platform.width,
-          platform.height,
-          0x385b48,
-        )
-        .setOrigin(0);
-      this.add
-        .rectangle(platform.x, platform.y, platform.width, 6, 0x80b88c)
-        .setOrigin(0);
-    }
-    this.add.text(70, 360, 'START', {
-      fontFamily: 'sans-serif',
-      fontSize: '18px',
-      color: '#b8dbc8',
-    });
-    this.add.text(2910, 310, 'Koniec planszy\nWróć lub skacz dalej!', {
-      fontFamily: 'sans-serif',
-      fontSize: '20px',
-      color: '#b8dbc8',
-    });
-    this.sprite = this.add
-      .rectangle(
-        this.player.x,
-        this.player.y,
-        PLAYER_WIDTH,
-        PLAYER_HEIGHT,
-        0xf4bf60,
-      )
-      .setOrigin(0);
+    createCanyonWorld(this, practiceLevel);
+    this.sprite = createExplorer(this, 'gold');
+    updateExplorer(this.sprite, this.player);
     this.cameras.main.setBounds(0, 0, practiceLevel.width, 540);
     this.cameras.main.startFollow(this.sprite, true, 1, 1);
 
@@ -120,15 +88,13 @@ class PracticeScene extends Phaser.Scene {
       for (const remote of remotes) {
         let sprite = this.remoteSprites.get(remote.sessionId);
         if (!sprite) {
-          sprite = this.add
-            .rectangle(0, 0, PLAYER_WIDTH, PLAYER_HEIGHT, 0x79c9f1)
-            .setOrigin(0);
+          sprite = createExplorer(this, 'blue');
           this.remoteSprites.set(remote.sessionId, sprite);
         }
-        sprite.setPosition(remote.state.x, remote.state.y);
+        updateExplorer(sprite, remote.state);
       }
     }
-    this.sprite?.setPosition(this.player.x, this.player.y);
+    if (this.sprite) updateExplorer(this.sprite, this.player);
   }
 }
 
@@ -142,7 +108,9 @@ export function createGame(
     parent,
     width: 960,
     height: 540,
-    backgroundColor: '#162c3b',
+    backgroundColor: '#a2d6de',
+    pixelArt: true,
+    roundPixels: true,
     scene: new PracticeScene(controls, session),
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     audio: { noAudio: true },

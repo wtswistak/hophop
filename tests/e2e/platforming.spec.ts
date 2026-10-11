@@ -18,7 +18,8 @@ async function playerPosition(page: Page) {
       y = 0,
       count = 0;
     for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i] === 244 && pixels[i + 1] === 191 && pixels[i + 2] === 96) {
+      // Only the explorer uses near-black outlines; canyon/rock pixels are lighter.
+      if (pixels[i]! < 32 && pixels[i + 1]! < 28 && pixels[i + 2]! < 28) {
         x += (i / 4) % canvas.width;
         y += Math.floor(i / 4 / canvas.width);
         count++;
