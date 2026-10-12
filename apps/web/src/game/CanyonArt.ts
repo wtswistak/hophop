@@ -1,16 +1,13 @@
-import Phaser from 'phaser';
-import { PLAYER_HEIGHT, PLAYER_WIDTH } from '@game/core';
-import type { LevelGeometry, PlayerState } from '@game/core';
+import type Phaser from 'phaser';
+import type { LevelGeometry } from '@game/core';
 import backgroundUrl from './assets/canyon-background.png';
 import sandstoneUrl from './assets/sandstone-tile.png';
-import goldUrl from './assets/explorer-gold.png';
-import blueUrl from './assets/explorer-blue.png';
+import { preloadExplorerArt } from './ExplorerSprite';
 
 export function preloadCanyonArt(scene: Phaser.Scene) {
   scene.load.image('canyon', backgroundUrl);
   scene.load.image('sandstone', sandstoneUrl);
-  scene.load.image('explorer-gold', goldUrl);
-  scene.load.image('explorer-blue', blueUrl);
+  preloadExplorerArt(scene);
 }
 
 export function createCanyonWorld(scene: Phaser.Scene, level: LevelGeometry) {
@@ -60,29 +57,4 @@ export function createCanyonWorld(scene: Phaser.Scene, level: LevelGeometry) {
     backgroundColor: '#273746',
     padding: { x: 8, y: 6 },
   });
-}
-
-export function createExplorer(scene: Phaser.Scene, color: 'gold' | 'blue') {
-  const texture = scene.textures.get(`explorer-${color}`);
-  if (!texture.has('body')) {
-    // Trim the generated canvas padding so the visible body follows the hitbox.
-    const [x, y, width, height] =
-      color === 'gold'
-        ? ([266, 114, 774, 1061] as const)
-        : ([265, 113, 776, 1063] as const);
-    texture.add('body', 0, x, y, width, height);
-  }
-  return scene.add
-    .image(0, 0, `explorer-${color}`, 'body')
-    .setOrigin(0)
-    .setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT)
-    .setDepth(2);
-}
-
-export function updateExplorer(
-  sprite: Phaser.GameObjects.Image,
-  state: PlayerState,
-) {
-  sprite.setPosition(Math.round(state.x), Math.round(state.y));
-  sprite.setFlipX(state.facing === -1);
 }

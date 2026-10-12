@@ -14,19 +14,23 @@ async function playerPosition(page: Page) {
     const context = canvas.getContext('2d')!;
     context.drawImage(image, 0, 0);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let x = 0,
-      y = 0,
+    let minX = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity,
       count = 0;
     for (let i = 0; i < pixels.length; i += 4) {
       // Only the explorer uses near-black outlines; canyon/rock pixels are lighter.
       if (pixels[i]! < 32 && pixels[i + 1]! < 28 && pixels[i + 2]! < 28) {
-        x += (i / 4) % canvas.width;
-        y += Math.floor(i / 4 / canvas.width);
+        const x = (i / 4) % canvas.width;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, Math.floor(i / 4 / canvas.width));
         count++;
       }
     }
     if (!count) throw new Error('Player is not visible');
-    return { x: x / count, y: y / count };
+    // Foot baseline is stable between poses; a pixel centroid moves with the limbs.
+    return { x: (minX + maxX) / 2, y: maxY };
   }, png);
 }
 

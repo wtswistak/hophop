@@ -4,17 +4,13 @@ import type { PlayerState } from '@game/core';
 import { practiceLevel } from './level';
 import type { PlayerControls } from './PlayerControls';
 import type { MultiplayerSession } from '../network/MultiplayerSession';
-import {
-  createCanyonWorld,
-  createExplorer,
-  preloadCanyonArt,
-  updateExplorer,
-} from './CanyonArt';
+import { createCanyonWorld, preloadCanyonArt } from './CanyonArt';
+import { createExplorer, updateExplorer } from './ExplorerSprite';
 
 class PracticeScene extends Phaser.Scene {
   private player: PlayerState = createPlayer(practiceLevel);
-  private sprite?: Phaser.GameObjects.Image;
-  private readonly remoteSprites = new Map<string, Phaser.GameObjects.Image>();
+  private sprite?: Phaser.GameObjects.Sprite;
+  private readonly remoteSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private accumulator = 0;
   private paused = false;
 
@@ -39,12 +35,14 @@ class PracticeScene extends Phaser.Scene {
 
     const pause = () => {
       this.paused = true;
+      this.anims.pauseAll();
       this.session?.stop();
       this.accumulator = 0;
       this.controls.reset();
     };
     const resume = () => {
       this.paused = document.hidden;
+      if (!this.paused) this.anims.resumeAll();
       this.accumulator = 0;
       this.controls.reset();
     };
