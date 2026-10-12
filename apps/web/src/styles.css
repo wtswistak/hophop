@@ -114,6 +114,16 @@ main.playing {
 .control-jump {
   margin-left: auto;
 }
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .touch-controls {
+    display: none;
+  }
+}
+@media (any-pointer: coarse) {
+  .touch-controls {
+    display: flex;
+  }
+}
 @media (max-height: 450px) {
   .game-header button {
     min-height: 40px;
