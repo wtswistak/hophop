@@ -11,7 +11,13 @@ import {
 } from './index.js';
 
 test('input validation rejects missing, excessive and wrongly typed fields', () => {
-  const command = { sequence: 1, levelId: LEVEL_ID, direction: 0, jump: false };
+  const command = {
+    sequence: 1,
+    levelId: LEVEL_ID,
+    stageId: 1,
+    direction: 0,
+    jump: false,
+  };
   expect(isInputCommand(command)).toBe(true);
   for (const value of [
     [],
@@ -44,7 +50,13 @@ test('rejects malformed lobby snapshots and lists', () => {
     ready: false,
     loaded: false,
   };
-  const lobby = { phase: 'waiting', players: [player], countdownSeconds: null };
+  const lobby = {
+    levelId: LEVEL_ID,
+    stageId: 1,
+    phase: 'waiting',
+    players: [player],
+    countdownSeconds: null,
+  };
   expect(isLobbySnapshot(lobby)).toBe(true);
   expect(isLobbySnapshot({ ...lobby, players: [player, player] })).toBe(false);
   expect(
@@ -72,7 +84,7 @@ test('snapshot validation rejects duplicate players, nonfinite states and incorr
     state: createPlayer(practiceLevel),
     lastProcessedSequence: 0,
   };
-  const state = { tick: 0, levelId: LEVEL_ID, players: [player] };
+  const state = { tick: 0, levelId: LEVEL_ID, stageId: 1, players: [player] };
   expect(isGameSnapshot(state)).toBe(true);
   expect(isGameSnapshot({ ...state, players: [player, player] })).toBe(false);
   expect(isGameSnapshot({ ...state, tick: -1 })).toBe(false);
@@ -83,4 +95,37 @@ test('snapshot validation rejects duplicate players, nonfinite states and incorr
       players: [{ ...player, state: { ...player.state, x: Infinity } }],
     }),
   ).toBe(false);
+});
+
+test('stage identity is mandatory on commands, loading acknowledgements and snapshots', async () => {
+  const { isLoadedMessage } = await import('./index.js');
+  for (const stageId of [undefined, 0, -1, 1.5, Infinity, '2']) {
+    expect(
+      isInputCommand({
+        sequence: 1,
+        direction: 0,
+        jump: false,
+        levelId: LEVEL_ID,
+        stageId,
+      }),
+    ).toBe(false);
+    expect(isLoadedMessage({ levelId: LEVEL_ID, stageId })).toBe(false);
+    expect(
+      isGameSnapshot({ tick: 0, levelId: LEVEL_ID, stageId, players: [] }),
+    ).toBe(false);
+    expect(
+      isLobbySnapshot({
+        phase: 'loading',
+        levelId: LEVEL_ID,
+        stageId,
+        players: [],
+        countdownSeconds: null,
+      }),
+    ).toBe(false);
+  }
+  expect(isLoadedMessage({ levelId: 'canyon-v1', stageId: 2 })).toBe(true);
+  expect(isLoadedMessage({ levelId: 'unknown', stageId: 2 })).toBe(false);
+  expect(isLoadedMessage({ levelId: LEVEL_ID, stageId: 1, ready: true })).toBe(
+    false,
+  );
 });

@@ -1,3 +1,4 @@
+import { getLevel } from '@game/core';
 import type { PlayerInput, PlayerState } from '@game/core';
 
 export const ROOM_TYPE = 'practice';
@@ -6,7 +7,14 @@ export const MAX_PLAYERS = 2;
 export const SNAPSHOT_EVERY_TICKS = 3;
 export const MAX_PENDING_INPUTS = 120;
 
-export type LobbyPhase = 'waiting' | 'loading' | 'countdown' | 'playing';
+export type LobbyPhase =
+  | 'waiting'
+  | 'loading'
+  | 'countdown'
+  | 'playing'
+  | 'transition'
+  | 'finished'
+  | 'aborted';
 export interface LobbyPlayer {
   sessionId: string;
   nickname: string;
@@ -14,7 +22,12 @@ export interface LobbyPlayer {
   ready: boolean;
   loaded: boolean;
 }
-export interface LobbySnapshot {
+export interface StageIdentity {
+  levelId: string;
+  stageId: number;
+}
+
+export interface LobbySnapshot extends StageIdentity {
   phase: LobbyPhase;
   players: LobbyPlayer[];
   countdownSeconds: number | null;
@@ -45,9 +58,16 @@ export function isReadyMessage(value: unknown): value is { ready: boolean } {
 export function isLobbySnapshot(value: unknown): value is LobbySnapshot {
   if (
     !isRecord(value) ||
-    !['waiting', 'loading', 'countdown', 'playing'].includes(
-      value.phase as string,
-    ) ||
+    !isStageIdentity(value) ||
+    ![
+      'waiting',
+      'loading',
+      'countdown',
+      'playing',
+      'transition',
+      'finished',
+      'aborted',
+    ].includes(value.phase as string) ||
     !Array.isArray(value.players) ||
     value.players.length > MAX_PLAYERS ||
     (value.phase === 'countdown'
@@ -96,9 +116,8 @@ export function isPublicLobbyList(value: unknown): value is PublicLobby[] {
   );
 }
 
-export interface InputCommand extends PlayerInput {
+export interface InputCommand extends PlayerInput, StageIdentity {
   sequence: number;
-  levelId: typeof LEVEL_ID;
 }
 
 export interface PlayerSnapshot {
@@ -107,9 +126,8 @@ export interface PlayerSnapshot {
   lastProcessedSequence: number;
 }
 
-export interface GameSnapshot {
+export interface GameSnapshot extends StageIdentity {
   tick: number;
-  levelId: typeof LEVEL_ID;
   players: PlayerSnapshot[];
 }
 
@@ -120,10 +138,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isInputCommand(value: unknown): value is InputCommand {
   if (!isRecord(value)) return false;
   return (
-    Object.keys(value).length === 4 &&
+    Object.keys(value).length === 5 &&
     Number.isSafeInteger(value.sequence) &&
     (value.sequence as number) > 0 &&
-    value.levelId === LEVEL_ID &&
+    isStageIdentity(value) &&
     (value.direction === -1 ||
       value.direction === 0 ||
       value.direction === 1) &&
@@ -145,7 +163,7 @@ function isPlayerState(value: unknown): value is PlayerState {
 export function isGameSnapshot(value: unknown): value is GameSnapshot {
   if (
     !isRecord(value) ||
-    value.levelId !== LEVEL_ID ||
+    !isStageIdentity(value) ||
     !Number.isSafeInteger(value.tick) ||
     (value.tick as number) < 0 ||
     !Array.isArray(value.players) ||
@@ -166,4 +184,19 @@ export function isGameSnapshot(value: unknown): value is GameSnapshot {
     ids.add(player.sessionId);
     return true;
   });
+}
+
+function isStageIdentity(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.levelId === 'string' &&
+    getLevel(value.levelId) !== undefined &&
+    Number.isSafeInteger(value.stageId) &&
+    (value.stageId as number) > 0
+  );
+}
+
+export function isLoadedMessage(value: unknown): value is StageIdentity {
+  return (
+    isRecord(value) && Object.keys(value).length === 2 && isStageIdentity(value)
+  );
 }

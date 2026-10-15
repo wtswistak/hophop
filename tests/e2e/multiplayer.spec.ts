@@ -41,6 +41,8 @@ test('two browsers choose a lobby and start only after both are ready', async ({
     await expect(host!.getByText(/Start za [1-3]…/)).toBeVisible();
     await expect(host!.locator('canvas')).toBeVisible({ timeout: 10000 });
     await expect(guest!.locator('canvas')).toBeVisible();
+    await expect(host!.getByText('Poziom 1/2', { exact: true })).toBeVisible();
+    await expect(guest!.getByText('Poziom 1/2', { exact: true })).toBeVisible();
     await host!.getByRole('button', { name: 'Wróć do menu' }).click();
   } finally {
     await Promise.all(contexts.map((context) => context.close()));

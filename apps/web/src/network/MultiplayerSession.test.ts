@@ -7,6 +7,7 @@ import { MultiplayerSession } from './MultiplayerSession';
 const snapshot = (tick = 1): GameSnapshot => ({
   tick,
   levelId: LEVEL_ID,
+  stageId: 1,
   players: [
     {
       sessionId: 'a',
@@ -22,6 +23,8 @@ const snapshot = (tick = 1): GameSnapshot => ({
 });
 const right = { direction: 1, jump: false } as const;
 const playingLobby = {
+  levelId: LEVEL_ID,
+  stageId: 1,
   phase: 'playing',
   countdownSeconds: null,
   players: [
@@ -145,6 +148,8 @@ test('keeps movement blocked until the server announces play and sends readiness
   expect(inputs).toEqual([]);
   expect(
     session.receiveLobby({
+      levelId: LEVEL_ID,
+      stageId: 1,
       phase: 'waiting',
       countdownSeconds: null,
       players: [playingLobby.players[0]],
@@ -153,15 +158,62 @@ test('keeps movement blocked until the server announces play and sends readiness
   session.setReady(true);
   expect(control).toEqual([{ type: 'ready', message: { ready: true } }]);
   session.receiveLobby({
+    levelId: LEVEL_ID,
+    stageId: 1,
     phase: 'loading',
     countdownSeconds: null,
     players: playingLobby.players,
   });
-  session.loaded();
-  expect(control[1]).toEqual({ type: 'loaded', message: {} });
+  session.loaded(1);
+  expect(control[1]).toEqual({
+    type: 'loaded',
+    message: { levelId: LEVEL_ID, stageId: 1 },
+  });
   session.advance(right);
   expect(inputs).toEqual([]);
   session.receiveLobby(playingLobby);
   session.advance(right);
   expect(inputs).toHaveLength(1);
+});
+
+test('new stage discards predictions and interpolation, rejects stale state and binds loading confirmation to the stage', () => {
+  const sent: InputCommand[] = [];
+  const controls: unknown[] = [];
+  const session = new MultiplayerSession(
+    'room',
+    'a',
+    (_type, command) => sent.push(command),
+    () => {},
+    (_type, message) => controls.push(message),
+  );
+  session.receive(snapshot(), 0);
+  session.receiveLobby(playingLobby);
+  session.advance(right);
+  const nextLobby = {
+    ...playingLobby,
+    phase: 'loading',
+    levelId: 'canyon-v1',
+    stageId: 2,
+  };
+  expect(session.receiveLobby(nextLobby)).toBe(true);
+  expect(session.player.x).toBe(96);
+  expect(session.remotePlayers(200)).toEqual([]);
+  expect(session.receive(snapshot(100), 200)).toBe(false);
+  expect(session.receiveLobby(playingLobby)).toBe(false);
+  session.loaded(1);
+  expect(controls).toEqual([]);
+  session.loaded(2);
+  expect(controls).toEqual([{ levelId: 'canyon-v1', stageId: 2 }]);
+  session.advance(right);
+  expect(sent).toHaveLength(1);
+  const next = { ...snapshot(200), levelId: 'canyon-v1', stageId: 2 };
+  expect(session.receive(next, 300)).toBe(true);
+  session.receiveLobby({ ...nextLobby, phase: 'playing' });
+  session.advance(right);
+  expect(sent[1]).toMatchObject({
+    sequence: 1,
+    levelId: 'canyon-v1',
+    stageId: 2,
+  });
+  expect(session.player.x).toBeCloseTo(96 + 280 / 60);
 });

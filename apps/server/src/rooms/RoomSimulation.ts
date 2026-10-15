@@ -1,11 +1,6 @@
-import { createPlayer, practiceLevel, stepPlayer } from '@game/core';
-import type { PlayerInput, PlayerState } from '@game/core';
-import {
-  isInputCommand,
-  LEVEL_ID,
-  MAX_PLAYERS,
-  MAX_PENDING_INPUTS,
-} from '@game/shared';
+import { createPlayer, levels, reachedFinish, stepPlayer } from '@game/core';
+import type { LevelDefinition, PlayerInput, PlayerState } from '@game/core';
+import { isInputCommand, MAX_PLAYERS, MAX_PENDING_INPUTS } from '@game/shared';
 import type { GameSnapshot, InputCommand } from '@game/shared';
 
 interface Participant {
@@ -25,12 +20,29 @@ const MAX_MESSAGES_PER_SECOND = 120;
 
 export class RoomSimulation {
   tick = 0;
+  stageId = 1;
+  level: LevelDefinition = levels[0]!;
+
+  loadLevel(level: LevelDefinition, stageId: number) {
+    this.level = level;
+    this.stageId = stageId;
+    const ids = [...this.players.keys()];
+    this.players.clear();
+    for (const id of ids) this.addPlayer(id);
+    this.tick++;
+  }
+
+  hasFinished(): boolean {
+    return [...this.players.values()].some((player) =>
+      reachedFinish(player.state, this.level),
+    );
+  }
   private readonly players = new Map<string, Participant>();
 
   addPlayer(sessionId: string) {
     if (this.players.size >= MAX_PLAYERS || this.players.has(sessionId))
       throw new Error('Room is full');
-    const state = createPlayer(practiceLevel);
+    const state = createPlayer(this.level);
     // Separate starting positions; player bodies do not collide with each other.
     if ([...this.players.values()].some((player) => player.state.x === state.x))
       state.x += 64;
@@ -60,6 +72,8 @@ export class RoomSimulation {
     if (++player.messages > MAX_MESSAGES_PER_SECOND || !isInputCommand(message))
       return false;
     if (
+      message.levelId !== this.level.id ||
+      message.stageId !== this.stageId ||
       message.sequence <= player.lastReceived ||
       message.sequence > player.lastReceived + MAX_PENDING_INPUTS
     )
@@ -92,7 +106,7 @@ export class RoomSimulation {
       player.state = stepPlayer(
         player.state,
         { direction: player.direction, jump: command?.jump ?? false },
-        practiceLevel,
+        this.level,
       );
     }
   }
@@ -100,7 +114,8 @@ export class RoomSimulation {
   snapshot(): GameSnapshot {
     return {
       tick: this.tick,
-      levelId: LEVEL_ID,
+      levelId: this.level.id,
+      stageId: this.stageId,
       players: [...this.players].map(([sessionId, player]) => ({
         sessionId,
         state: { ...player.state },

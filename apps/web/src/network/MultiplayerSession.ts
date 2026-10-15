@@ -1,17 +1,22 @@
 import {
   createPlayer,
   FIXED_STEP_MS,
-  practiceLevel,
+  levels,
+  getLevel,
   stepPlayer,
 } from '@game/core';
 import type { PlayerInput, PlayerState } from '@game/core';
 import {
   isGameSnapshot,
   isLobbySnapshot,
-  LEVEL_ID,
   MAX_PENDING_INPUTS,
 } from '@game/shared';
-import type { GameSnapshot, InputCommand, LobbySnapshot } from '@game/shared';
+import type {
+  GameSnapshot,
+  InputCommand,
+  LobbySnapshot,
+  StageIdentity,
+} from '@game/shared';
 
 type SendCommand = (type: 'input' | 'stop', command: InputCommand) => void;
 interface ReceivedSnapshot {
@@ -25,7 +30,7 @@ export interface SessionStatus {
 }
 
 export class MultiplayerSession {
-  player = createPlayer(practiceLevel);
+  player = createPlayer(levels[0]!);
   private pending: InputCommand[] = [];
   private sequence = 0;
   private lastTick = -1;
@@ -33,7 +38,13 @@ export class MultiplayerSession {
   private status: SessionStatus = {
     connected: true,
     playerCount: 0,
-    lobby: { phase: 'waiting', players: [], countdownSeconds: null },
+    lobby: {
+      phase: 'waiting',
+      players: [],
+      countdownSeconds: null,
+      levelId: levels[0]!.id,
+      stageId: 1,
+    },
   };
   private readonly listeners = new Set<() => void>();
   private closed = false;
@@ -45,7 +56,7 @@ export class MultiplayerSession {
     private readonly leave: () => void,
     private readonly sendControl: (
       type: 'ready' | 'loaded',
-      message: { ready: boolean } | Record<string, never>,
+      message: { ready: boolean } | StageIdentity,
     ) => void = () => {},
   ) {}
 
@@ -59,6 +70,20 @@ export class MultiplayerSession {
 
   receiveLobby(message: unknown): boolean {
     if (this.closed || !isLobbySnapshot(message)) return false;
+    if (message.stageId < this.status.lobby.stageId) return false;
+    if (
+      message.stageId === this.status.lobby.stageId &&
+      message.levelId !== this.status.lobby.levelId
+    )
+      return false;
+    if (message.stageId !== this.status.lobby.stageId) {
+      this.pending = [];
+      this.history = [];
+      this.sequence = 0;
+      this.lastTick = -1;
+      this.player = createPlayer(getLevel(message.levelId)!);
+    }
+    if (message.phase !== 'playing') this.pending = [];
     if (JSON.stringify(this.status.lobby) === JSON.stringify(message))
       return true;
     this.status = {
@@ -75,15 +100,22 @@ export class MultiplayerSession {
     this.sendControl('ready', { ready });
   }
 
-  loaded() {
-    if (this.closed || this.status.lobby.phase !== 'loading') return;
-    this.sendControl('loaded', {});
+  loaded(stageId: number) {
+    if (
+      this.closed ||
+      this.status.lobby.phase !== 'loading' ||
+      stageId !== this.status.lobby.stageId
+    )
+      return;
+    this.sendControl('loaded', { stageId, levelId: this.status.lobby.levelId });
   }
 
   receive(message: unknown, now: number): boolean {
     if (
       this.closed ||
       !isGameSnapshot(message) ||
+      message.stageId !== this.status.lobby.stageId ||
+      message.levelId !== this.status.lobby.levelId ||
       message.tick <= this.lastTick
     )
       return false;
@@ -97,7 +129,11 @@ export class MultiplayerSession {
     );
     this.player = { ...own.state };
     for (const command of this.pending)
-      this.player = stepPlayer(this.player, command, practiceLevel);
+      this.player = stepPlayer(
+        this.player,
+        command,
+        getLevel(this.status.lobby.levelId)!,
+      );
     this.history.push({ snapshot: message, receivedAt: now });
     if (this.history.length > 12) this.history.shift();
     if (this.status.playerCount !== message.players.length) {
@@ -118,21 +154,27 @@ export class MultiplayerSession {
     const command: InputCommand = {
       ...input,
       sequence: ++this.sequence,
-      levelId: LEVEL_ID,
+      levelId: this.status.lobby.levelId,
+      stageId: this.status.lobby.stageId,
     };
     this.pending.push(command);
-    this.player = stepPlayer(this.player, command, practiceLevel);
+    this.player = stepPlayer(
+      this.player,
+      command,
+      getLevel(this.status.lobby.levelId)!,
+    );
     this.send('input', command);
   }
 
   stop() {
-    if (this.closed) return;
+    if (this.closed || this.status.lobby.phase !== 'playing') return;
     this.pending = [];
     this.send('stop', {
       direction: 0,
       jump: false,
       sequence: ++this.sequence,
-      levelId: LEVEL_ID,
+      levelId: this.status.lobby.levelId,
+      stageId: this.status.lobby.stageId,
     });
   }
 

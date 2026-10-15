@@ -1,3 +1,4 @@
+import type { LevelDefinition } from '@game/core';
 import { useEffect, useRef, useState } from 'react';
 import { createGame } from './createGame';
 import { bindKeyboard, PlayerControls } from './PlayerControls';
@@ -10,7 +11,24 @@ const buttons: { action: ControlAction; label: string; text: string }[] = [
   { action: 'jump', label: 'Skocz', text: 'Skok' },
 ];
 
-export function GameCanvas({ session }: { session?: MultiplayerSession }) {
+export function GameCanvas({
+  session,
+  level,
+  playing,
+  onReady,
+  onFinish,
+}: {
+  session?: MultiplayerSession;
+  level: LevelDefinition;
+  playing: boolean;
+  onReady: () => void;
+  onFinish?: () => void;
+}) {
+  const playingRef = useRef(playing);
+  const [loadFailed, setLoadFailed] = useState(false);
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
   const container = useRef<HTMLDivElement>(null);
   const [controls] = useState(() => new PlayerControls());
   useEffect(() => {
@@ -21,19 +39,35 @@ export function GameCanvas({ session }: { session?: MultiplayerSession }) {
     // Defer boot so React StrictMode can cancel its trial effect before allocating WebGL.
     let game: ReturnType<typeof createGame> | undefined;
     const boot = requestAnimationFrame(() => {
-      game = createGame(parent, controls, session);
+      game = createGame(
+        parent,
+        controls,
+        level,
+        {
+          canPlay: () => playingRef.current,
+          onReady,
+          onFinish: () => onFinish?.(),
+          onLoadError: () => setLoadFailed(true),
+        },
+        session,
+      );
     });
     return () => {
       unbind();
       cancelAnimationFrame(boot);
       game?.destroy(true);
     };
-  }, [controls, session]);
+  }, [controls, session, level, onReady, onFinish]);
   return (
     <section
       className="game-shell"
       aria-label={session ? 'Gra multiplayer' : 'Gra lokalna'}
     >
+      {loadFailed && (
+        <p role="alert">
+          Nie udało się wczytać grafik. Wróć do menu i spróbuj ponownie.
+        </p>
+      )}
       <div className="game-frame">
         <div
           className="game-container"
@@ -45,6 +79,7 @@ export function GameCanvas({ session }: { session?: MultiplayerSession }) {
           {buttons.map(({ action, label, text }) => (
             <button
               key={action}
+              disabled={!playing}
               type="button"
               className={`control control-${action}`}
               aria-label={label}

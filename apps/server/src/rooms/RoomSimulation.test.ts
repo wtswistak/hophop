@@ -7,7 +7,7 @@ const command = (
   sequence: number,
   direction: -1 | 0 | 1 = 1,
   jump = false,
-) => ({ sequence, direction, jump, levelId: LEVEL_ID });
+) => ({ sequence, direction, jump, levelId: LEVEL_ID, stageId: 1 });
 function player(room: RoomSimulation, id = 'a') {
   return room.snapshot().players.find((item) => item.sessionId === id)!;
 }
@@ -111,4 +111,34 @@ test('the server respawns a falling player without resetting the other player', 
   }
   expect(respawned).toBe(true);
   expect(player(room, 'b').state.x).toBe(160);
+});
+
+test('loading a new stage resets both players and queued actions; old input and stop are rejected', async () => {
+  const { levels } = await import('@game/core');
+  const room = new RoomSimulation();
+  room.addPlayer('a');
+  room.addPlayer('b');
+  room.receive('a', command(1));
+  room.step();
+  room.receive('a', command(2, 1, true));
+  const tick = room.tick;
+  room.loadLevel(levels[1]!, 2);
+  expect(room.tick).toBeGreaterThan(tick);
+  expect(room.snapshot()).toMatchObject({ levelId: 'canyon-v1', stageId: 2 });
+  expect(player(room).state.x).toBe(96);
+  expect(player(room, 'b').state.x).toBe(160);
+  expect(player(room).lastProcessedSequence).toBe(0);
+  expect(room.receive('a', command(3))).toBe(false);
+  expect(room.receive('a', command(4, 0), true)).toBe(false);
+  room.step();
+  expect(player(room).state).toMatchObject({
+    x: 96,
+    velocityX: 0,
+    velocityY: 0,
+  });
+  expect(
+    room.receive('a', { ...command(1), levelId: 'canyon-v1', stageId: 2 }),
+  ).toBe(true);
+  room.step();
+  expect(player(room).state.x).toBeGreaterThan(96);
 });

@@ -48,6 +48,7 @@ function createRoom() {
       receivers.get('snapshot')?.({
         tick: 1,
         levelId: LEVEL_ID,
+        stageId: 1,
         players: [
           {
             sessionId: 'a',

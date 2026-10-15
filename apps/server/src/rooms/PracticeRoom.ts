@@ -2,6 +2,7 @@ import { Room } from '@colyseus/core';
 import type { Client } from '@colyseus/core';
 import {
   isReadyMessage,
+  isLoadedMessage,
   MAX_PLAYERS,
   parseNickname,
   SNAPSHOT_EVERY_TICKS,
@@ -34,11 +35,9 @@ export class PracticeRoom extends Room {
     });
     this.onMessage('loaded', (client, message: unknown) => {
       if (
-        message &&
-        typeof message === 'object' &&
-        !Array.isArray(message) &&
-        Object.keys(message).length === 0 &&
-        this.lobby.setLoaded(client.sessionId, this.lobbyTick)
+        isLoadedMessage(message) &&
+        message.levelId === this.lobby.level.id &&
+        this.lobby.setLoaded(client.sessionId, this.lobbyTick, message.stageId)
       )
         this.publishLobby();
     });
@@ -48,7 +47,15 @@ export class PracticeRoom extends Room {
         this.publishLobby();
         if (this.lobby.phase === 'playing') void this.lock();
       }
-      if (this.lobby.phase === 'playing') this.simulation.step();
+      this.syncLevel();
+      if (this.lobby.phase === 'playing') {
+        this.simulation.step();
+        if (this.simulation.hasFinished()) {
+          this.lobby.finish(this.lobbyTick);
+          this.publishLobby();
+          this.broadcast('snapshot', this.simulation.snapshot());
+        }
+      }
       if (this.lobbyTick % SNAPSHOT_EVERY_TICKS === 0) {
         this.publishLobby();
         this.broadcast('snapshot', this.simulation.snapshot());
@@ -79,13 +86,19 @@ export class PracticeRoom extends Room {
     this.publishLobby();
   }
   onLeave(client: Client) {
-    if (this.lobby.remove(client.sessionId)) {
+    if (this.lobby.remove(client.sessionId, this.lobbyTick)) {
       this.simulation.removePlayer(client.sessionId);
       this.publishLobby();
     }
   }
 
+  private syncLevel() {
+    if (this.simulation.stageId !== this.lobby.stageId)
+      this.simulation.loadLevel(this.lobby.level, this.lobby.stageId);
+  }
+
   private publishLobby() {
+    this.syncLevel();
     this.broadcast('lobby', this.lobby.snapshot(this.lobbyTick));
   }
 }

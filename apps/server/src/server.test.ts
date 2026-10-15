@@ -60,6 +60,7 @@ test('a real room accepts two clients, rejects the third and publishes server mo
     first.send('input', {
       sequence: 1,
       levelId: LEVEL_ID,
+      stageId: 1,
       direction: 1,
       jump: false,
     });
@@ -68,8 +69,8 @@ test('a real room accepts two clients, rejects the third and publishes server mo
     second.send('ready', { ready: true });
     await loading;
     const playing = waitForPhase('playing');
-    first.send('loaded', {});
-    second.send('loaded', {});
+    first.send('loaded', { levelId: LEVEL_ID, stageId: 1 });
+    second.send('loaded', { levelId: LEVEL_ID, stageId: 1 });
     await playing;
     const nextState = new Promise<import('@game/shared').GameSnapshot>(
       (resolve, reject) => {
@@ -95,6 +96,7 @@ test('a real room accepts two clients, rejects the third and publishes server mo
     first.send('input', {
       sequence: 2,
       levelId: LEVEL_ID,
+      stageId: 1,
       direction: 1,
       jump: false,
     });

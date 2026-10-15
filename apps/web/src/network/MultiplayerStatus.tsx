@@ -1,3 +1,4 @@
+import { levels } from '@game/core';
 import { useSyncExternalStore } from 'react';
 import type { MultiplayerSession } from './MultiplayerSession';
 import goldExplorer from '../game/assets/explorer-gold.png';
@@ -12,7 +13,7 @@ export function MultiplayerStatus({
   const own = status.lobby.players.find(
     (player) => player.sessionId === session.sessionId,
   );
-  const waiting = status.lobby.phase !== 'playing';
+  const waiting = status.lobby.phase === 'waiting';
   return (
     <section
       className={`session-status${waiting ? ' session-status--waiting menu-panel' : ''}`}
@@ -23,9 +24,7 @@ export function MultiplayerStatus({
           <p className="menu-eyebrow">Wspólna przygoda</p>
           <h1>Lobby</h1>
           <p className="menu-intro">
-            {status.lobby.phase === 'waiting'
-              ? 'Zaznacz gotowość, gdy chcesz rozpocząć grę.'
-              : 'Przygotowujemy wspólną planszę.'}
+            Zaznacz gotowość, gdy chcesz rozpocząć grę.
           </p>
         </header>
       )}
@@ -45,6 +44,22 @@ export function MultiplayerStatus({
       ) : (
         <>
           <p role="status">Gracze: {status.playerCount}/2</p>
+          {!waiting && (
+            <p role="status">
+              {status.lobby.phase === 'loading' &&
+                'Wczytywanie poziomu — czekamy na graczy…'}
+              {status.lobby.phase === 'countdown' &&
+                `Start za ${status.lobby.countdownSeconds}…`}
+              {status.lobby.phase === 'playing' &&
+                `Poziom ${levels.findIndex((level) => level.id === status.lobby.levelId) + 1}/${levels.length}`}
+              {status.lobby.phase === 'transition' &&
+                'Poziom ukończony! Przechodzicie dalej razem.'}
+              {status.lobby.phase === 'finished' &&
+                'Gratulacje! Wszystkie poziomy ukończone. Wróć do menu, aby zagrać ponownie.'}
+              {status.lobby.phase === 'aborted' &&
+                'Mecz zakończony: przekroczono czas wczytywania poziomu. Wróć do menu i spróbuj ponownie.'}
+            </p>
+          )}
           {waiting && (
             <>
               <ul className="lobby-players">
@@ -83,21 +98,13 @@ export function MultiplayerStatus({
                   </li>
                 )}
               </ul>
-              {status.lobby.phase === 'waiting' && (
-                <button
-                  onClick={() => session.setReady(!own?.ready)}
-                  disabled={!own}
-                  aria-pressed={own?.ready ?? false}
-                >
-                  {own?.ready ? 'Cofnij gotowość' : 'Gotowy'}
-                </button>
-              )}
-              {status.lobby.phase === 'loading' && (
-                <p role="status">Wczytywanie gry…</p>
-              )}
-              {status.lobby.phase === 'countdown' && (
-                <p role="status">Start za {status.lobby.countdownSeconds}…</p>
-              )}
+              <button
+                onClick={() => session.setReady(!own?.ready)}
+                disabled={!own}
+                aria-pressed={own?.ready ?? false}
+              >
+                {own?.ready ? 'Cofnij gotowość' : 'Gotowy'}
+              </button>
             </>
           )}
         </>
