@@ -12,3 +12,5 @@ export type {
   Rectangle,
 } from './types.js';
 export { practiceLevel } from './practiceLevel.js';
+export { levels, getLevel, reachedFinish } from './levels.js';
+export type { LevelDefinition } from './levels.js';
