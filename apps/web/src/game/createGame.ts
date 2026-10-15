@@ -41,12 +41,22 @@ class PracticeScene extends Phaser.Scene {
   create() {
     if (this.loadFailed) return;
     this.player = this.session?.player ?? createPlayer(this.level);
-    createCanyonWorld(this, this.level);
+    const background = createCanyonWorld(this, this.level);
     this.sprite = createExplorer(this, 'gold');
     updateExplorer(this.sprite, this.player);
     this.cameras.main.setBounds(0, 0, this.level.width, 540);
     this.cameras.main.startFollow(this.sprite, true, 1, 1);
 
+    const resize = () => {
+      const { width, height } = this.scale.gameSize;
+      const zoom = height / 540;
+      this.cameras.main.setZoom(zoom);
+      background
+        .setPosition(width / 2, height / 2)
+        .setDisplaySize(width / zoom, 540);
+    };
+    resize();
+    this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.lifecycle.onReady();
 
     const pause = () => {
@@ -70,6 +80,7 @@ class PracticeScene extends Phaser.Scene {
     window.addEventListener('focus', resume);
     document.addEventListener('visibilitychange', visibility);
     const cleanup = () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, resize);
       window.removeEventListener('blur', pause);
       window.removeEventListener('focus', resume);
       document.removeEventListener('visibilitychange', visibility);
@@ -146,7 +157,7 @@ export function createGame(
     pixelArt: true,
     roundPixels: true,
     scene: new PracticeScene(controls, level, lifecycle, session),
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: { mode: Phaser.Scale.RESIZE },
     audio: { noAudio: true },
   });
 }

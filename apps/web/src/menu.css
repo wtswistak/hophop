@@ -182,6 +182,8 @@ main.menu-screen {
 main.playing:has(.session-status--waiting) {
   height: auto;
   max-width: 920px;
+  overflow: visible;
+  padding: max(80px, env(safe-area-inset-top)) 20px 24px;
 }
 main.playing:has(.session-status--waiting) .game-header p {
   display: none;

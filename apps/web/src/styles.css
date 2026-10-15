@@ -39,37 +39,73 @@ canvas {
 }
 
 main.playing {
+  position: relative;
   box-sizing: border-box;
-  max-width: 1200px;
+  max-width: none;
+  width: 100%;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: max(8px, env(safe-area-inset-top))
-    max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
-    max(12px, env(safe-area-inset-left));
+  padding: 0;
+  overflow: hidden;
 }
-.game-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.game-header p {
-  margin: 0;
-  font-size: 0.85rem;
-}
-.game-shell {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  container-type: size;
+.game-shell,
+.game-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .game-frame {
-  position: relative;
-  width: min(100cqw, calc(100cqh * 16 / 9));
-  aspect-ratio: 16 / 9;
   container-type: inline-size;
+}
+.game-menu-toggle {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 30;
+  width: 48px;
+  padding: 0;
+  font-size: 26px;
+  background: #273746df;
+  color: #fff3da;
+  border: 2px solid #edb66c;
+}
+.game-menu {
+  box-sizing: border-box;
+  width: min(360px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 24px;
+  color: #fff3da;
+  background: #273746;
+  border: 2px solid #edb66c;
+}
+.game-menu::backdrop {
+  background: #14232bc4;
+}
+.game-menu h2 {
+  margin-top: 0;
+}
+.game-menu button {
+  display: block;
+  width: 100%;
+  margin-block: 12px;
+}
+.game-menu p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.game-notice {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: calc(100% - 160px);
+  margin: 0;
+  padding: 12px;
+  background: #273746e8;
+  text-align: center;
+  pointer-events: none;
 }
 .game-shell .game-container {
   position: absolute;
@@ -86,7 +122,8 @@ main.playing {
   inset: auto 0 3%;
   display: flex;
   gap: 2cqw;
-  padding: 0 3cqw;
+  padding: 0 max(3cqw, env(safe-area-inset-right))
+    max(0px, env(safe-area-inset-bottom)) max(3cqw, env(safe-area-inset-left));
   pointer-events: none;
 }
 .control {
@@ -124,19 +161,6 @@ main.playing {
     display: flex;
   }
 }
-@media (max-height: 450px) {
-  .game-header button {
-    min-height: 40px;
-    padding: 6px 16px;
-  }
-}
-@media (orientation: portrait) {
-  .game-header {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-}
-
 .menu-actions {
   display: flex;
   flex-wrap: wrap;

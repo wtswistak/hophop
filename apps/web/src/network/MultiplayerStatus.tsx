@@ -1,4 +1,3 @@
-import { levels } from '@game/core';
 import { useSyncExternalStore } from 'react';
 import type { MultiplayerSession } from './MultiplayerSession';
 import goldExplorer from '../game/assets/explorer-gold.png';
@@ -10,13 +9,14 @@ export function MultiplayerStatus({
   session: MultiplayerSession;
 }) {
   const status = useSyncExternalStore(session.subscribe, session.getStatus);
+  if (status.connected && status.lobby.phase === 'playing') return null;
   const own = status.lobby.players.find(
     (player) => player.sessionId === session.sessionId,
   );
   const waiting = status.lobby.phase === 'waiting';
   return (
     <section
-      className={`session-status${waiting ? ' session-status--waiting menu-panel' : ''}`}
+      className={`session-status${waiting ? ' session-status--waiting menu-panel' : ' game-notice'}`}
       aria-label="Lobby"
     >
       {waiting && (
@@ -28,30 +28,30 @@ export function MultiplayerStatus({
           </p>
         </header>
       )}
-      <label>
-        Kod lobby{' '}
-        <input
-          aria-label="Kod bieżącego lobby"
-          value={session.roomId}
-          readOnly
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      </label>
+      {waiting && (
+        <label>
+          Kod lobby{' '}
+          <input
+            aria-label="Kod bieżącego lobby"
+            value={session.roomId}
+            readOnly
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </label>
+      )}
       {!status.connected ? (
         <p role="alert">
           Połączenie zostało zakończone. Wróć do menu i połącz się ponownie.
         </p>
       ) : (
         <>
-          <p role="status">Gracze: {status.playerCount}/2</p>
+          {waiting && <p role="status">Gracze: {status.playerCount}/2</p>}
           {!waiting && (
             <p role="status">
               {status.lobby.phase === 'loading' &&
                 'Wczytywanie poziomu — czekamy na graczy…'}
               {status.lobby.phase === 'countdown' &&
                 `Start za ${status.lobby.countdownSeconds}…`}
-              {status.lobby.phase === 'playing' &&
-                `Poziom ${levels.findIndex((level) => level.id === status.lobby.levelId) + 1}/${levels.length}`}
               {status.lobby.phase === 'transition' &&
                 'Poziom ukończony! Przechodzicie dalej razem.'}
               {status.lobby.phase === 'finished' &&
@@ -82,7 +82,7 @@ export function MultiplayerStatus({
                       </span>
                       <strong>{player.nickname}</strong>
                       <span
-                        className={`player-readiness${player.ready ? ' player-readiness--ready' : ''}`}
+                        className={`player-readiness${player.ready ? ' player-readiness--ready' : ' game-notice'}`}
                       >
                         {player.ready ? 'Gotowy' : 'Niegotowy'}
                       </span>

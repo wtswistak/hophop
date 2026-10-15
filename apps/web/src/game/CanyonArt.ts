@@ -11,10 +11,9 @@ export function preloadCanyonArt(scene: Phaser.Scene) {
 }
 
 export function createCanyonWorld(scene: Phaser.Scene, level: LevelDefinition) {
-  scene.add
+  const background = scene.add
     .image(0, 0, 'canyon')
-    .setOrigin(0)
-    .setDisplaySize(960, 540)
+    .setOrigin(0.5)
     .setScrollFactor(0);
 
   const texture = scene.textures.get('sandstone');
@@ -39,17 +38,6 @@ export function createCanyonWorld(scene: Phaser.Scene, level: LevelDefinition) {
       .setOrigin(0)
       .setTileScale(64 / width, 6 / lipHeight);
   }
-  scene.add
-    .text(24, 20, level.name, {
-      fontFamily: 'monospace',
-      fontSize: '20px',
-      fontStyle: 'bold',
-      color: '#fff3da',
-      backgroundColor: '#273746',
-      padding: { x: 12, y: 8 },
-    })
-    .setScrollFactor(0)
-    .setDepth(10);
   const { x, y, height: finishHeight } = level.finish;
   scene.add.rectangle(x, y, 6, finishHeight, 0xfff3da).setOrigin(0);
   scene.add.rectangle(x + 6, y, 58, 36, 0xedb66c).setOrigin(0);
@@ -58,4 +46,5 @@ export function createCanyonWorld(scene: Phaser.Scene, level: LevelDefinition) {
     fontSize: '16px',
     color: '#273746',
   });
+  return background;
 }

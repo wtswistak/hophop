@@ -26,15 +26,17 @@ export function GameCanvas({
 }) {
   const playingRef = useRef(playing);
   const [loadFailed, setLoadFailed] = useState(false);
-  useEffect(() => {
-    playingRef.current = playing;
-  }, [playing]);
   const container = useRef<HTMLDivElement>(null);
   const [controls] = useState(() => new PlayerControls());
   useEffect(() => {
+    playingRef.current = playing;
+    controls.reset();
+    if (playing) container.current?.focus();
+    else session?.stop();
+  }, [playing, controls, session]);
+  useEffect(() => {
     const parent = container.current;
     if (!parent) return;
-    parent.focus();
     const unbind = bindKeyboard(controls);
     // Defer boot so React StrictMode can cancel its trial effect before allocating WebGL.
     let game: ReturnType<typeof createGame> | undefined;
@@ -64,7 +66,7 @@ export function GameCanvas({
       aria-label={session ? 'Gra multiplayer' : 'Gra lokalna'}
     >
       {loadFailed && (
-        <p role="alert">
+        <p role="alert" className="game-notice">
           Nie udało się wczytać grafik. Wróć do menu i spróbuj ponownie.
         </p>
       )}

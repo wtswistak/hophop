@@ -5,7 +5,7 @@ import { GameLoader } from './GameLoader';
 
 type Phase = 'loading' | 'countdown' | 'playing' | 'transition' | 'finished';
 
-export function LocalGame() {
+export function LocalGame({ paused }: { paused: boolean }) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('loading');
   const [seconds, setSeconds] = useState(3);
@@ -16,6 +16,7 @@ export function LocalGame() {
   const finish = useCallback(() => setPhase('transition'), []);
 
   useEffect(() => {
+    if (paused) return;
     if (phase === 'countdown') {
       const timer = window.setTimeout(() => {
         if (seconds === 1) setPhase('playing');
@@ -33,23 +34,24 @@ export function LocalGame() {
       }, 2000);
       return () => window.clearTimeout(timer);
     }
-  }, [phase, seconds, levelIndex]);
+  }, [phase, seconds, levelIndex, paused]);
 
   return (
     <>
-      <p role="status">
-        {phase === 'loading' && 'Wczytywanie poziomu…'}
-        {phase === 'countdown' && `Start za ${seconds}…`}
-        {phase === 'playing' && `Poziom ${levelIndex + 1}/${levels.length}`}
-        {phase === 'transition' && 'Poziom ukończony!'}
-        {phase === 'finished' &&
-          'Gratulacje! Wszystkie poziomy ukończone. Wróć do menu, aby zagrać ponownie.'}
-      </p>
+      {phase !== 'playing' && (
+        <p role="status" className="game-notice">
+          {phase === 'loading' && 'Wczytywanie poziomu…'}
+          {phase === 'countdown' && `Start za ${seconds}…`}
+          {phase === 'transition' && 'Poziom ukończony!'}
+          {phase === 'finished' &&
+            'Gratulacje! Wszystkie poziomy ukończone. Wróć do menu, aby zagrać ponownie.'}
+        </p>
+      )}
       {phase !== 'finished' && (
         <GameLoader
           key={levelIndex}
           level={levels[levelIndex]!}
-          playing={phase === 'playing'}
+          playing={phase === 'playing' && !paused}
           onReady={ready}
           onFinish={finish}
         />
