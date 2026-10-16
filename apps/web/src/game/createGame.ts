@@ -2,23 +2,25 @@ import Phaser from 'phaser';
 import {
   createPlayer,
   FIXED_STEP_MS,
-  reachedFinish,
-  stepPlayer,
+  createMobs,
+  SingleplayerSimulation,
 } from '@game/core';
 import type { LevelDefinition, PlayerState } from '@game/core';
 import type { PlayerControls } from './PlayerControls';
 import type { MultiplayerSession } from '../network/MultiplayerSession';
 import { createCanyonWorld, preloadCanyonArt } from './CanyonArt';
+import { createMobSprites, updateMobSprites } from './MobSprites';
 import { createExplorer, updateExplorer } from './ExplorerSprite';
 
-class PracticeScene extends Phaser.Scene {
+class PlatformScene extends Phaser.Scene {
   private player: PlayerState;
-  private finished = false;
+  private readonly local: SingleplayerSimulation | undefined;
+  private mobSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private loadFailed = false;
   private sprite?: Phaser.GameObjects.Sprite;
   private readonly remoteSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private accumulator = 0;
-  private paused = false;
+  private animationsPaused = false;
 
   constructor(
     private readonly controls: PlayerControls,
@@ -26,8 +28,9 @@ class PracticeScene extends Phaser.Scene {
     private readonly lifecycle: GameLifecycle,
     private readonly session?: MultiplayerSession,
   ) {
-    super('practice');
+    super('platform');
     this.player = createPlayer(level);
+    this.local = session ? undefined : new SingleplayerSimulation(level);
   }
 
   preload() {
@@ -42,6 +45,7 @@ class PracticeScene extends Phaser.Scene {
     if (this.loadFailed) return;
     this.player = this.session?.player ?? createPlayer(this.level);
     const background = createCanyonWorld(this, this.level);
+    this.mobSprites = createMobSprites(this, createMobs(this.level));
     this.sprite = createExplorer(this, 'gold');
     updateExplorer(this.sprite, this.player);
     this.cameras.main.setBounds(0, 0, this.level.width, 540);
@@ -59,31 +63,8 @@ class PracticeScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.lifecycle.onReady();
 
-    const pause = () => {
-      this.paused = true;
-      this.anims.pauseAll();
-      this.session?.stop();
-      this.accumulator = 0;
-      this.controls.reset();
-    };
-    const resume = () => {
-      this.paused = document.hidden;
-      if (!this.paused) this.anims.resumeAll();
-      this.accumulator = 0;
-      this.controls.reset();
-    };
-    const visibility = () => {
-      if (document.hidden) pause();
-      else resume();
-    };
-    window.addEventListener('blur', pause);
-    window.addEventListener('focus', resume);
-    document.addEventListener('visibilitychange', visibility);
     const cleanup = () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, resize);
-      window.removeEventListener('blur', pause);
-      window.removeEventListener('focus', resume);
-      document.removeEventListener('visibilitychange', visibility);
       this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
       this.events.off(Phaser.Scenes.Events.DESTROY, cleanup);
     };
@@ -97,17 +78,28 @@ class PracticeScene extends Phaser.Scene {
       this.accumulator = 0;
       this.controls.reset();
     }
-    if (this.paused && !this.session) return;
+    const animate = this.session
+      ? this.session.getStatus().connected &&
+        this.session.getStatus().lobby.phase === 'playing'
+      : this.lifecycle.canPlay();
+    const pauseAnimations = !animate;
+    if (this.animationsPaused !== pauseAnimations) {
+      this.animationsPaused = pauseAnimations;
+      if (animate) this.anims.resumeAll();
+      else this.anims.pauseAll();
+    }
     // At most six ticks after a stall; returning to a tab never fast-forwards the game.
-    if (!this.paused && this.lifecycle.canPlay() && !this.finished)
+    if (this.lifecycle.canPlay() && !this.local?.finished)
       this.accumulator += Math.min(delta, 100);
     while (this.accumulator >= FIXED_STEP_MS) {
       const input = this.controls.read();
       if (this.session) this.session.advance(input);
-      else this.player = stepPlayer(this.player, input, this.level);
+      else if (this.local) {
+        this.local.step(input);
+        this.player = this.local.player;
+      }
       this.accumulator -= FIXED_STEP_MS;
-      if (!this.session && reachedFinish(this.player, this.level)) {
-        this.finished = true;
+      if (this.local?.finished) {
         this.accumulator = 0;
         this.lifecycle.onFinish();
       }
@@ -130,6 +122,12 @@ class PracticeScene extends Phaser.Scene {
         updateExplorer(sprite, remote.state);
       }
     }
+    updateMobSprites(
+      this.mobSprites,
+      this.session
+        ? this.session.remoteMobs(performance.now())
+        : this.local!.mobs,
+    );
     if (this.sprite) updateExplorer(this.sprite, this.player);
   }
 }
@@ -156,7 +154,7 @@ export function createGame(
     backgroundColor: '#a2d6de',
     pixelArt: true,
     roundPixels: true,
-    scene: new PracticeScene(controls, level, lifecycle, session),
+    scene: new PlatformScene(controls, level, lifecycle, session),
     scale: { mode: Phaser.Scale.RESIZE },
     audio: { noAudio: true },
   });

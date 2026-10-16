@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { createPlayer, practiceLevel } from '@game/core';
+import { createMobs, levels, createPlayer, practiceLevel } from '@game/core';
 import { LEVEL_ID, ROOM_TYPE } from '@game/shared';
 import { connectMultiplayer } from './connectMultiplayer';
 
@@ -47,6 +47,7 @@ function createRoom() {
     deliver: () =>
       receivers.get('snapshot')?.({
         tick: 1,
+        mobs: createMobs(levels[0]!),
         levelId: LEVEL_ID,
         stageId: 1,
         players: [

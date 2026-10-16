@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import type { Client } from '@colyseus/core';
 import type { GameSnapshot, LobbySnapshot } from '@game/shared';
-import { PracticeRoom } from './PracticeRoom.js';
+import { GameRoom } from './GameRoom.js';
 
 // Replace transport/timers only; exercise the real room, lobby and simulation together.
 vi.mock('@colyseus/core', () => ({
@@ -23,7 +23,7 @@ vi.mock('@colyseus/core', () => ({
 }));
 
 test('one finisher transports both players; movement waits for the next barrier and the campaign ends', () => {
-  const room = new PracticeRoom() as PracticeRoom & {
+  const room = new GameRoom() as GameRoom & {
     handlers: Map<string, (client: Client, message: unknown) => void>;
     advance: () => void;
     broadcast: ReturnType<typeof vi.fn>;

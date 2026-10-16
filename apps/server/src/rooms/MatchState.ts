@@ -5,7 +5,7 @@ import type { LobbyPhase, LobbyPlayer, LobbySnapshot } from '@game/shared';
 const LOAD_TIMEOUT_TICKS = 30 * 60;
 const COUNTDOWN_TICKS = 3 * 60;
 
-export class LobbyState {
+export class MatchState {
   phase: LobbyPhase = 'waiting';
   private players = new Map<string, LobbyPlayer>();
   private deadline = 0;

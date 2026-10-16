@@ -5,7 +5,7 @@ import {
   getLevel,
   stepPlayer,
 } from '@game/core';
-import type { PlayerInput, PlayerState } from '@game/core';
+import type { MobState, PlayerInput, PlayerState } from '@game/core';
 import {
   isGameSnapshot,
   isLobbySnapshot,
@@ -181,20 +181,7 @@ export class MultiplayerSession {
   remotePlayers(now: number): { sessionId: string; state: PlayerState }[] {
     const latest = this.history.at(-1);
     if (!latest) return [];
-    // Render remote entities 100 ms behind the latest estimate; never extrapolate a fall.
-    const renderTick =
-      latest.snapshot.tick + (now - latest.receivedAt - 100) / FIXED_STEP_MS;
-    const before =
-      [...this.history]
-        .reverse()
-        .find((item) => item.snapshot.tick <= renderTick) ?? this.history[0]!;
-    const after =
-      this.history.find((item) => item.snapshot.tick >= renderTick) ?? latest;
-    const span = after.snapshot.tick - before.snapshot.tick;
-    const alpha =
-      span > 0
-        ? Math.max(0, Math.min(1, (renderTick - before.snapshot.tick) / span))
-        : 1;
+    const { before, after, alpha } = this.interpolationWindow(now, latest);
     return latest.snapshot.players
       .filter((player) => player.sessionId !== this.sessionId)
       .map((player) => {
@@ -216,6 +203,40 @@ export class MultiplayerSession {
           },
         };
       });
+  }
+
+  remoteMobs(now: number): MobState[] {
+    const latest = this.history.at(-1);
+    if (!latest) return [];
+    const { before, after, alpha } = this.interpolationWindow(now, latest);
+    return latest.snapshot.mobs.map((mob) => {
+      const from =
+        before.snapshot.mobs.find((item) => item.id === mob.id) ?? mob;
+      const to = after.snapshot.mobs.find((item) => item.id === mob.id) ?? mob;
+      return {
+        ...to,
+        x: from.x + (to.x - from.x) * alpha,
+        y: from.y + (to.y - from.y) * alpha,
+      };
+    });
+  }
+
+  private interpolationWindow(now: number, latest: ReceivedSnapshot) {
+    // Render remote entities 100 ms behind the latest estimate; never extrapolate a fall.
+    const renderTick =
+      latest.snapshot.tick + (now - latest.receivedAt - 100) / FIXED_STEP_MS;
+    const before =
+      [...this.history]
+        .reverse()
+        .find((item) => item.snapshot.tick <= renderTick) ?? this.history[0]!;
+    const after =
+      this.history.find((item) => item.snapshot.tick >= renderTick) ?? latest;
+    const span = after.snapshot.tick - before.snapshot.tick;
+    const alpha =
+      span > 0
+        ? Math.max(0, Math.min(1, (renderTick - before.snapshot.tick) / span))
+        : 1;
+    return { before, after, alpha };
   }
 
   disconnected() {

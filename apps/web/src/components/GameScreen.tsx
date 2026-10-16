@@ -4,15 +4,16 @@ import { LocalGame } from './LocalGame';
 import { MultiplayerStatus } from '../network/MultiplayerStatus';
 import type { MultiplayerSession } from '../network/MultiplayerSession';
 
+import { usePageActive } from '../game/usePageActive';
 import { GameMenu } from './GameMenu';
 import { GameLoader } from './GameLoader';
 
 function MultiplayerGame({
   session,
-  menuOpen,
+  paused,
 }: {
   session: MultiplayerSession;
-  menuOpen: boolean;
+  paused: boolean;
 }) {
   const { lobby } = useSyncExternalStore(session.subscribe, session.getStatus);
   const ready = useCallback(
@@ -29,7 +30,7 @@ function MultiplayerGame({
           key={lobby.stageId}
           session={session}
           level={getLevel(lobby.levelId)!}
-          playing={lobby.phase === 'playing' && !menuOpen}
+          playing={lobby.phase === 'playing' && !paused}
           onReady={ready}
         />
       )}
@@ -45,6 +46,8 @@ export function GameScreen({
   onBack: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pageActive = usePageActive();
+  const paused = menuOpen || !pageActive;
   return (
     <>
       <GameMenu
@@ -55,9 +58,9 @@ export function GameScreen({
         session={session}
       />
       {session ? (
-        <MultiplayerGame session={session} menuOpen={menuOpen} />
+        <MultiplayerGame session={session} paused={paused} />
       ) : (
-        <LocalGame paused={menuOpen} />
+        <LocalGame paused={paused} />
       )}
     </>
   );

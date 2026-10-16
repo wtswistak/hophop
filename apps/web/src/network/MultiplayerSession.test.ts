@@ -1,11 +1,18 @@
 import { expect, test } from 'vitest';
-import { createPlayer, practiceLevel, stepPlayer } from '@game/core';
+import {
+  createMobs,
+  levels,
+  createPlayer,
+  practiceLevel,
+  stepPlayer,
+} from '@game/core';
 import { LEVEL_ID } from '@game/shared';
 import type { GameSnapshot, InputCommand } from '@game/shared';
 import { MultiplayerSession } from './MultiplayerSession';
 
 const snapshot = (tick = 1): GameSnapshot => ({
   tick,
+  mobs: createMobs(levels[0]!),
   levelId: LEVEL_ID,
   stageId: 1,
   players: [
@@ -75,8 +82,10 @@ test('interpolates the other player and snaps across respawn instead of flying t
   session.receive(snapshot(0), 0);
   const next = snapshot(6);
   next.players[1]!.state.x = 188;
+  next.mobs[0]!.x += 10;
   session.receive(next, 100);
   expect(session.remotePlayers(150)[0]!.state.x).toBeCloseTo(174);
+  expect(session.remoteMobs(150)[0]!.x).toBeCloseTo(405);
   const fall = snapshot(9);
   fall.players[1]!.state.x = 800;
   fall.players[1]!.state.y = 700;
@@ -198,6 +207,7 @@ test('new stage discards predictions and interpolation, rejects stale state and 
   expect(session.receiveLobby(nextLobby)).toBe(true);
   expect(session.player.x).toBe(96);
   expect(session.remotePlayers(200)).toEqual([]);
+  expect(session.remoteMobs(200)).toEqual([]);
   expect(session.receive(snapshot(100), 200)).toBe(false);
   expect(session.receiveLobby(playingLobby)).toBe(false);
   session.loaded(1);
@@ -206,7 +216,12 @@ test('new stage discards predictions and interpolation, rejects stale state and 
   expect(controls).toEqual([{ levelId: 'canyon-v1', stageId: 2 }]);
   session.advance(right);
   expect(sent).toHaveLength(1);
-  const next = { ...snapshot(200), levelId: 'canyon-v1', stageId: 2 };
+  const next = {
+    ...snapshot(200),
+    levelId: 'canyon-v1',
+    stageId: 2,
+    mobs: createMobs(levels[1]!),
+  };
   expect(session.receive(next, 300)).toBe(true);
   session.receiveLobby({ ...nextLobby, phase: 'playing' });
   session.advance(right);

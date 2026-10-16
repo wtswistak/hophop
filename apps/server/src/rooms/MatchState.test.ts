@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest';
-import { LobbyState } from './LobbyState.js';
+import { MatchState } from './MatchState.js';
 
 test('requires two ready players, both load acknowledgements and a three second countdown', () => {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   expect(lobby.add('a', ' Alice ')).toBe(true);
   expect(lobby.add('b', 'Bob')).toBe(true);
   expect(lobby.add('c', 'Eve')).toBe(false);
@@ -34,7 +34,7 @@ test('requires two ready players, both load acknowledgements and a three second 
 });
 
 test('unready and departure prevent starting; free slot is reused', () => {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   lobby.add('a', 'Alice');
   lobby.add('b', 'Bob');
   lobby.setReady('a', true, 0);
@@ -58,7 +58,7 @@ test('unready and departure prevent starting; free slot is reused', () => {
 });
 
 test('load timeout clears readiness and permits retry', () => {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   lobby.add('a', 'Alice');
   lobby.add('b', 'Bob');
   lobby.setReady('a', true, 10);
@@ -79,7 +79,7 @@ test('load timeout clears readiness and permits retry', () => {
 });
 
 test('invalid nicknames do not take seats', () => {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   expect(lobby.add('a', 'A')).toBe(false);
   expect(lobby.add('a', 'A\u0000B')).toBe(false);
   expect(lobby.add('a', 'A'.repeat(21))).toBe(false);
@@ -87,7 +87,7 @@ test('invalid nicknames do not take seats', () => {
 });
 
 function playingLobby() {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   lobby.add('a', 'Alice');
   lobby.add('b', 'Bob');
   lobby.setReady('a', true, 0);
@@ -133,7 +133,7 @@ test('simultaneous finishes advance once after two seconds, wait for both client
 });
 
 test('retry cannot reuse an acknowledgement from an expired loading attempt', () => {
-  const lobby = new LobbyState();
+  const lobby = new MatchState();
   lobby.add('a', 'Alice');
   lobby.add('b', 'Bob');
   lobby.setReady('a', true, 0);

@@ -7,56 +7,56 @@ import {
   parseNickname,
   SNAPSHOT_EVERY_TICKS,
 } from '@game/shared';
-import { LobbyState } from './LobbyState.js';
+import { MatchState } from './MatchState.js';
 import { RoomSimulation } from './RoomSimulation.js';
 
-export class PracticeRoom extends Room {
+export class GameRoom extends Room {
   maxClients = MAX_PLAYERS;
   maxMessagesPerSecond = 120;
   private readonly simulation = new RoomSimulation();
-  private readonly lobby = new LobbyState();
-  private lobbyTick = 0;
+  private readonly match = new MatchState();
+  private matchTick = 0;
 
   onCreate() {
     this.onMessage('input', (client, message: unknown) => {
-      if (this.lobby.phase === 'playing')
+      if (this.match.phase === 'playing')
         this.simulation.receive(client.sessionId, message);
     });
     this.onMessage('stop', (client, message: unknown) => {
-      if (this.lobby.phase === 'playing')
+      if (this.match.phase === 'playing')
         this.simulation.receive(client.sessionId, message, true);
     });
     this.onMessage('ready', (client, message: unknown) => {
       if (
         isReadyMessage(message) &&
-        this.lobby.setReady(client.sessionId, message.ready, this.lobbyTick)
+        this.match.setReady(client.sessionId, message.ready, this.matchTick)
       )
         this.publishLobby();
     });
     this.onMessage('loaded', (client, message: unknown) => {
       if (
         isLoadedMessage(message) &&
-        message.levelId === this.lobby.level.id &&
-        this.lobby.setLoaded(client.sessionId, this.lobbyTick, message.stageId)
+        message.levelId === this.match.level.id &&
+        this.match.setLoaded(client.sessionId, this.matchTick, message.stageId)
       )
         this.publishLobby();
     });
     this.setFixedTimestep(() => {
-      this.lobbyTick++;
-      if (this.lobby.step(this.lobbyTick)) {
+      this.matchTick++;
+      if (this.match.step(this.matchTick)) {
+        this.syncLevel();
         this.publishLobby();
-        if (this.lobby.phase === 'playing') void this.lock();
+        if (this.match.phase === 'playing') void this.lock();
       }
-      this.syncLevel();
-      if (this.lobby.phase === 'playing') {
+      if (this.match.phase === 'playing') {
         this.simulation.step();
         if (this.simulation.hasFinished()) {
-          this.lobby.finish(this.lobbyTick);
+          this.match.finish(this.matchTick);
           this.publishLobby();
           this.broadcast('snapshot', this.simulation.snapshot());
         }
       }
-      if (this.lobbyTick % SNAPSHOT_EVERY_TICKS === 0) {
+      if (this.matchTick % SNAPSHOT_EVERY_TICKS === 0) {
         this.publishLobby();
         this.broadcast('snapshot', this.simulation.snapshot());
       }
@@ -65,7 +65,7 @@ export class PracticeRoom extends Room {
 
   onAuth(_client: Client, options: unknown) {
     if (
-      this.lobby.phase !== 'waiting' ||
+      this.match.phase !== 'waiting' ||
       !options ||
       typeof options !== 'object' ||
       !parseNickname((options as Record<string, unknown>).nickname)
@@ -76,7 +76,7 @@ export class PracticeRoom extends Room {
 
   onJoin(client: Client, options: unknown) {
     if (
-      !this.lobby.add(
+      !this.match.add(
         client.sessionId,
         (options as Record<string, unknown>).nickname,
       )
@@ -86,19 +86,19 @@ export class PracticeRoom extends Room {
     this.publishLobby();
   }
   onLeave(client: Client) {
-    if (this.lobby.remove(client.sessionId, this.lobbyTick)) {
+    if (this.match.remove(client.sessionId, this.matchTick)) {
       this.simulation.removePlayer(client.sessionId);
+      this.syncLevel();
       this.publishLobby();
     }
   }
 
   private syncLevel() {
-    if (this.simulation.stageId !== this.lobby.stageId)
-      this.simulation.loadLevel(this.lobby.level, this.lobby.stageId);
+    if (this.simulation.stageId !== this.match.stageId)
+      this.simulation.loadLevel(this.match.level, this.match.stageId);
   }
 
   private publishLobby() {
-    this.syncLevel();
-    this.broadcast('lobby', this.lobby.snapshot(this.lobbyTick));
+    this.broadcast('lobby', this.match.snapshot(this.matchTick));
   }
 }

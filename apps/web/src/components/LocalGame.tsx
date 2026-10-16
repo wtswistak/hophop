@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { levels } from '@game/core';
 
 import { GameLoader } from './GameLoader';
@@ -15,25 +15,32 @@ export function LocalGame({ paused }: { paused: boolean }) {
   }, []);
   const finish = useCallback(() => setPhase('transition'), []);
 
+  const timer = useRef({ key: '', remaining: 0 });
   useEffect(() => {
+    if (phase !== 'countdown' && phase !== 'transition') return;
+    const key = `${phase}:${levelIndex}:${seconds}`;
+    if (timer.current.key !== key) {
+      timer.current = { key, remaining: phase === 'countdown' ? 1000 : 2000 };
+    }
     if (paused) return;
-    if (phase === 'countdown') {
-      const timer = window.setTimeout(() => {
+    const startedAt = performance.now();
+    const timeout = window.setTimeout(() => {
+      if (phase === 'countdown') {
         if (seconds === 1) setPhase('playing');
         else setSeconds(seconds - 1);
-      }, 1000);
-      return () => window.clearTimeout(timer);
-    }
-    if (phase === 'transition') {
-      const timer = window.setTimeout(() => {
-        if (levelIndex === levels.length - 1) setPhase('finished');
-        else {
-          setLevelIndex(levelIndex + 1);
-          setPhase('loading');
-        }
-      }, 2000);
-      return () => window.clearTimeout(timer);
-    }
+      } else if (levelIndex === levels.length - 1) setPhase('finished');
+      else {
+        setLevelIndex(levelIndex + 1);
+        setPhase('loading');
+      }
+    }, timer.current.remaining);
+    return () => {
+      window.clearTimeout(timeout);
+      timer.current.remaining = Math.max(
+        0,
+        timer.current.remaining - (performance.now() - startedAt),
+      );
+    };
   }, [phase, seconds, levelIndex, paused]);
 
   return (

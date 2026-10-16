@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { createPlayer, practiceLevel } from '@game/core';
+import { createMobs, levels, createPlayer, practiceLevel } from '@game/core';
 import {
   isGameSnapshot,
   isInputCommand,
@@ -58,6 +58,9 @@ test('rejects malformed lobby snapshots and lists', () => {
     countdownSeconds: null,
   };
   expect(isLobbySnapshot(lobby)).toBe(true);
+  expect(
+    isLobbySnapshot({ ...lobby, players: [{ ...player, nickname: null }] }),
+  ).toBe(false);
   expect(isLobbySnapshot({ ...lobby, players: [player, player] })).toBe(false);
   expect(
     isLobbySnapshot({
@@ -84,8 +87,24 @@ test('snapshot validation rejects duplicate players, nonfinite states and incorr
     state: createPlayer(practiceLevel),
     lastProcessedSequence: 0,
   };
-  const state = { tick: 0, levelId: LEVEL_ID, stageId: 1, players: [player] };
+  const state = {
+    mobs: createMobs(levels[0]!),
+    tick: 0,
+    levelId: LEVEL_ID,
+    stageId: 1,
+    players: [player],
+  };
   expect(isGameSnapshot(state)).toBe(true);
+  for (const mobs of [
+    undefined,
+    [],
+    [state.mobs[0], state.mobs[0]],
+    [{ ...state.mobs[0], id: 'unknown' }],
+    [{ ...state.mobs[0], x: NaN }],
+    [{ ...state.mobs[0], direction: 0 }],
+  ]) {
+    expect(isGameSnapshot({ ...state, mobs })).toBe(false);
+  }
   expect(isGameSnapshot({ ...state, players: [player, player] })).toBe(false);
   expect(isGameSnapshot({ ...state, tick: -1 })).toBe(false);
   expect(isGameSnapshot({ ...state, levelId: 'other' })).toBe(false);

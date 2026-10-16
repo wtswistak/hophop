@@ -1,7 +1,7 @@
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { ROOM_TYPE } from '@game/shared';
 import { isOriginAllowed, readAllowedOrigins } from './origins.js';
-import { PracticeRoom } from './rooms/PracticeRoom.js';
+import { GameRoom } from './rooms/GameRoom.js';
 import {
   createEndpoint,
   createRouter,
@@ -29,7 +29,7 @@ export function createGameServer() {
     };
   };
   return defineServer({
-    rooms: { [ROOM_TYPE]: defineRoom(PracticeRoom) },
+    rooms: { [ROOM_TYPE]: defineRoom(GameRoom) },
     transport: new WebSocketTransport({
       maxPayload: 4096,
       beforeUpgrade: checkOrigin,

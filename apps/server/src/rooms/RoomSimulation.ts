@@ -1,4 +1,11 @@
-import { createPlayer, levels, reachedFinish, stepPlayer } from '@game/core';
+import {
+  createPlayer,
+  levels,
+  reachedFinish,
+  createMobs,
+  stepMobs,
+  stepPlayerWithMobs,
+} from '@game/core';
 import type { LevelDefinition, PlayerInput, PlayerState } from '@game/core';
 import { isInputCommand, MAX_PLAYERS, MAX_PENDING_INPUTS } from '@game/shared';
 import type { GameSnapshot, InputCommand } from '@game/shared';
@@ -22,9 +29,11 @@ export class RoomSimulation {
   tick = 0;
   stageId = 1;
   level: LevelDefinition = levels[0]!;
+  private mobs = createMobs(this.level);
 
   loadLevel(level: LevelDefinition, stageId: number) {
     this.level = level;
+    this.mobs = createMobs(level);
     this.stageId = stageId;
     const ids = [...this.players.keys()];
     this.players.clear();
@@ -95,6 +104,7 @@ export class RoomSimulation {
 
   step() {
     this.tick++;
+    this.mobs = stepMobs(this.mobs, this.level);
     for (const player of this.players.values()) {
       const command = player.queue.shift();
       if (command) {
@@ -103,17 +113,25 @@ export class RoomSimulation {
       }
       if (this.tick - player.lastInputTick > INPUT_TIMEOUT_TICKS)
         player.direction = 0;
-      player.state = stepPlayer(
+      const result = stepPlayerWithMobs(
         player.state,
         { direction: player.direction, jump: command?.jump ?? false },
         this.level,
+        this.mobs,
       );
+      player.state = result.player;
+      if (result.hitMob) {
+        player.queue = [];
+        player.direction = 0;
+        player.lastProcessed = player.lastReceived;
+      }
     }
   }
 
   snapshot(): GameSnapshot {
     return {
       tick: this.tick,
+      mobs: this.mobs.map((mob) => ({ ...mob })),
       levelId: this.level.id,
       stageId: this.stageId,
       players: [...this.players].map(([sessionId, player]) => ({

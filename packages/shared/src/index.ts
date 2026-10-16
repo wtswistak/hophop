@@ -1,5 +1,5 @@
 import { getLevel } from '@game/core';
-import type { PlayerInput, PlayerState } from '@game/core';
+import type { MobState, PlayerInput, PlayerState } from '@game/core';
 
 export const ROOM_TYPE = 'practice';
 export const LEVEL_ID = 'practice-v1';
@@ -85,6 +85,7 @@ export function isLobbySnapshot(value: unknown): value is LobbySnapshot {
       typeof player.sessionId !== 'string' ||
       !player.sessionId ||
       ids.has(player.sessionId) ||
+      typeof player.nickname !== 'string' ||
       parseNickname(player.nickname) !== player.nickname ||
       (player.slot !== 1 && player.slot !== 2) ||
       slots.has(player.slot) ||
@@ -127,6 +128,7 @@ export interface PlayerSnapshot {
 }
 
 export interface GameSnapshot extends StageIdentity {
+  mobs: MobState[];
   tick: number;
   players: PlayerSnapshot[];
 }
@@ -168,6 +170,29 @@ export function isGameSnapshot(value: unknown): value is GameSnapshot {
     (value.tick as number) < 0 ||
     !Array.isArray(value.players) ||
     value.players.length > MAX_PLAYERS
+  )
+    return false;
+  const level = getLevel(value.levelId as string)!;
+  if (!Array.isArray(value.mobs) || value.mobs.length !== level.mobs.length)
+    return false;
+  const mobIds = new Set<string>();
+  if (
+    !value.mobs.every((mob: unknown) => {
+      if (
+        !isRecord(mob) ||
+        typeof mob.id !== 'string' ||
+        mobIds.has(mob.id) ||
+        !level.mobs.some((spawn) => spawn.id === mob.id) ||
+        typeof mob.x !== 'number' ||
+        !Number.isFinite(mob.x) ||
+        typeof mob.y !== 'number' ||
+        !Number.isFinite(mob.y) ||
+        (mob.direction !== -1 && mob.direction !== 1)
+      )
+        return false;
+      mobIds.add(mob.id);
+      return true;
+    })
   )
     return false;
   const ids = new Set<string>();
