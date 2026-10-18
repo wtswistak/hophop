@@ -73,12 +73,17 @@ test('keyboard moves and jumps, blur clears held movement', async ({
   await page.keyboard.up('ArrowLeft');
 });
 
-test('walking beyond the first ledge respawns at the level start', async ({
+test('crossing the first rock then walking off the ledge respawns at the start', async ({
   page,
 }) => {
   await openGame(page);
   const initial = await playerPosition(page);
   await page.keyboard.down('ArrowRight');
+  // Clear the introductory rock before deliberately walking into the first gap.
+  await expect
+    .poll(async () => (await playerPosition(page)).x)
+    .toBeGreaterThan(initial.x + 180);
+  await page.keyboard.press('Space');
   // Camera follows the player beyond its original screen position.
   await expect
     .poll(async () => (await playerPosition(page)).x)

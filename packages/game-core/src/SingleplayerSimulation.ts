@@ -16,7 +16,7 @@ export class SingleplayerSimulation {
 
   step(input: PlayerInput) {
     if (this.finished) return;
-    this.mobs = stepMobs(this.mobs, this.level);
+    this.mobs = stepMobs(this.mobs, this.level, [this.player]);
     this.player = stepPlayerWithMobs(
       this.player,
       input,

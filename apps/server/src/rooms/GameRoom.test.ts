@@ -1,4 +1,5 @@
 import { expect, test, vi } from 'vitest';
+import { getLevel, MOB_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH } from '@game/core';
 import type { Client } from '@colyseus/core';
 import type { GameSnapshot, LobbySnapshot } from '@game/shared';
 import { GameRoom } from './GameRoom.js';
@@ -59,26 +60,54 @@ test('one finisher transports both players; movement waits for the next barrier 
   const complete = (jumps: number[]) => {
     let sequence = 0,
       nextJump = 0;
-    while (lobby().phase === 'playing' && sequence < 1000) {
+    while (lobby().phase === 'playing' && sequence < 60 * 90) {
       const player = snapshot().players.find(
         (item) => item.sessionId === 'a',
       )!.state;
       const target = jumps[nextJump];
+      const routeJump = target !== undefined && player.x >= target;
+      const mobAhead = snapshot().mobs.some(
+        (mob, index) =>
+          mob.x > player.x &&
+          mob.x - player.x <
+            (getLevel(lobby().levelId)!.mobs[index]!.behavior === 'patrol'
+              ? 75
+              : 120) &&
+          Math.abs(mob.y + MOB_HEIGHT - (player.y + PLAYER_HEIGHT)) < 40,
+      );
+      // Wait before a gap if a patrol occupies the next landing.
+      const landingBlocked =
+        routeJump &&
+        snapshot().mobs.some((mob, index) => {
+          const course = getLevel(lobby().levelId)!;
+          const platform = course.platforms[course.mobs[index]!.platformIndex]!;
+          return (
+            platform.x > player.x + PLAYER_WIDTH &&
+            mob.x > player.x &&
+            mob.x - player.x < 320
+          );
+        });
       const jump =
-        target !== undefined && player.grounded && player.x >= target;
-      if (jump) nextJump++;
+        player.grounded && !landingBlocked && (routeJump || mobAhead);
+      if (jump && routeJump) nextJump++;
       send(a, 'input', {
         levelId: lobby().levelId,
         stageId: lobby().stageId,
         sequence: ++sequence,
-        direction: 1,
+        direction: landingBlocked || (!player.grounded && routeJump) ? 0 : 1,
         jump,
       });
       step(1);
+      expect(
+        snapshot().players.find((item) => item.sessionId === 'a')!.state.x,
+      ).toBeGreaterThanOrEqual(player.x);
     }
     expect(lobby().phase).toBe('transition');
   };
-  complete([650, 1450, 1830, 2210]);
+  complete([
+    350, 660, 1160, 1700, 2120, 2370, 2680, 3400, 3860, 4420, 4690, 4920, 5460,
+    6200, 6660, 7220, 7490, 7720, 8240,
+  ]);
   expect(
     snapshot().players.find((item) => item.sessionId === 'b')!.state.x,
   ).toBe(160);

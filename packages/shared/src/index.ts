@@ -185,6 +185,7 @@ export function isGameSnapshot(value: unknown): value is GameSnapshot {
         !level.mobs.some((spawn) => spawn.id === mob.id) ||
         typeof mob.x !== 'number' ||
         !Number.isFinite(mob.x) ||
+        typeof mob.alert !== 'boolean' ||
         typeof mob.y !== 'number' ||
         !Number.isFinite(mob.y) ||
         (mob.direction !== -1 && mob.direction !== 1)

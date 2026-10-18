@@ -85,7 +85,7 @@ test('interpolates the other player and snaps across respawn instead of flying t
   next.mobs[0]!.x += 10;
   session.receive(next, 100);
   expect(session.remotePlayers(150)[0]!.state.x).toBeCloseTo(174);
-  expect(session.remoteMobs(150)[0]!.x).toBeCloseTo(405);
+  expect(session.remoteMobs(150)[0]!.x).toBeCloseTo(next.mobs[0]!.x - 5);
   const fall = snapshot(9);
   fall.players[1]!.state.x = 800;
   fall.players[1]!.state.y = 700;

@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest';
 import {
   createMobs,
+  FIXED_STEP_MS,
   levels,
+  practiceLevel,
   MOB_WIDTH,
   SingleplayerSimulation,
 } from '@game/core';
@@ -10,6 +12,7 @@ import { RoomSimulation } from './RoomSimulation.js';
 
 const level: LevelDefinition = {
   ...levels[0]!,
+  ...practiceLevel,
   mobs: [{ id: 'patrol', platformIndex: 0, x: 250, speed: 55 }],
 };
 
@@ -37,7 +40,8 @@ test('mob contact respawns only the touching player identically offline and on t
         velocityY: 0,
       });
       expect(state.players[1]!.state.x).toBe(160);
-      expect(state.mobs[0]!.x).toBeGreaterThan(250);
+      expect(state.mobs[0]!.x).toBeLessThan(250);
+      expect(state.mobs[0]!.alert).toBe(true);
       break;
     }
   }
@@ -70,4 +74,28 @@ test('a player can jump over a mob; patrol stays on the platform and turns at bo
     expect(mob.x + MOB_WIDTH).toBeLessThanOrEqual(level.platforms[0]!.width);
   }
   expect(directions).toEqual(new Set([1, -1]));
+});
+
+test('patrol mobs keep their speed near players in both local and server simulation', () => {
+  const patrolLevel: LevelDefinition = {
+    ...level,
+    mobs: [{ ...level.mobs[0]!, behavior: 'patrol' }],
+  };
+  const local = new SingleplayerSimulation(patrolLevel);
+  const room = new RoomSimulation();
+  room.loadLevel(patrolLevel, 1);
+  room.addPlayer('a');
+  for (let sequence = 1; sequence <= 120; sequence++) {
+    const previous = local.mobs[0]!;
+    const input = { direction: 1, jump: false } as const;
+    local.step(input);
+    room.receive('a', { ...input, sequence, levelId: level.id, stageId: 1 });
+    room.step();
+    expect(local.mobs[0]!.alert).toBe(false);
+    expect(Math.abs(local.mobs[0]!.x - previous.x)).toBeLessThanOrEqual(
+      (patrolLevel.mobs[0]!.speed * FIXED_STEP_MS) / 1000 + 1e-9,
+    );
+    expect(room.snapshot().mobs).toEqual(local.mobs);
+    expect(room.snapshot().players[0]!.state).toEqual(local.player);
+  }
 });

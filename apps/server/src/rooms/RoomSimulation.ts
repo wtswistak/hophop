@@ -104,7 +104,11 @@ export class RoomSimulation {
 
   step() {
     this.tick++;
-    this.mobs = stepMobs(this.mobs, this.level);
+    this.mobs = stepMobs(
+      this.mobs,
+      this.level,
+      [...this.players.values()].map((player) => player.state),
+    );
     for (const player of this.players.values()) {
       const command = player.queue.shift();
       if (command) {

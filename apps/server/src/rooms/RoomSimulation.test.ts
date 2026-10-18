@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { practiceLevel } from '@game/core';
+import { levels, practiceLevel } from '@game/core';
 import { LEVEL_ID } from '@game/shared';
 import { RoomSimulation } from './RoomSimulation.js';
 
@@ -92,6 +92,7 @@ test('the input budget resets only after a server second', () => {
 
 test('the server respawns a falling player without resetting the other player', () => {
   const room = new RoomSimulation();
+  room.loadLevel({ ...levels[0]!, ...practiceLevel, mobs: [] }, 1);
   room.addPlayer('a');
   room.addPlayer('b');
   let respawned = false;

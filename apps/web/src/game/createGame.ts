@@ -21,6 +21,7 @@ class PlatformScene extends Phaser.Scene {
   private readonly remoteSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private accumulator = 0;
   private animationsPaused = false;
+  private mobAnimationTime = 0;
 
   constructor(
     private readonly controls: PlayerControls,
@@ -53,11 +54,12 @@ class PlatformScene extends Phaser.Scene {
 
     const resize = () => {
       const { width, height } = this.scale.gameSize;
-      const zoom = height / 540;
+      // Keep upcoming landings visible even on a portrait phone.
+      const zoom = Math.min(height / 540, width / 640);
       this.cameras.main.setZoom(zoom);
       background
         .setPosition(width / 2, height / 2)
-        .setDisplaySize(width / zoom, 540);
+        .setDisplaySize(width / zoom, height / zoom);
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
@@ -82,6 +84,7 @@ class PlatformScene extends Phaser.Scene {
       ? this.session.getStatus().connected &&
         this.session.getStatus().lobby.phase === 'playing'
       : this.lifecycle.canPlay();
+    if (animate) this.mobAnimationTime += Math.min(delta, 100);
     const pauseAnimations = !animate;
     if (this.animationsPaused !== pauseAnimations) {
       this.animationsPaused = pauseAnimations;
@@ -127,6 +130,7 @@ class PlatformScene extends Phaser.Scene {
       this.session
         ? this.session.remoteMobs(performance.now())
         : this.local!.mobs,
+      this.mobAnimationTime,
     );
     if (this.sprite) updateExplorer(this.sprite, this.player);
   }
