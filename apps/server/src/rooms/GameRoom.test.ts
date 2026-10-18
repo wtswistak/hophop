@@ -136,7 +136,10 @@ test('one finisher transports both players; movement waits for the next barrier 
   loaded(a);
   step(180);
   expect(lobby().phase).toBe('playing');
-  complete([500, 1140, 1830, 2150]);
+  complete([
+    270, 520, 900, 1300, 1680, 2380, 2780, 3160, 3580, 3840, 4080, 4780, 5160,
+    5520, 5900, 6600, 7000, 7380, 7800, 8500, 8900,
+  ]);
   step(120);
   expect(lobby()).toMatchObject({ phase: 'finished', stageId: 2 });
   const final = snapshot();
